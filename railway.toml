@@ -8,3 +8,40 @@ restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 healthcheckPath = "/"
 healthcheckTimeout = 30
+
+[variables]
+NODE_VERSION = "20"
+```
+
+---
+
+## Fix the Folder Structure
+
+This is the most important one. Your GitHub repo needs to look **exactly** like this:
+```
+jeci-dispute-agent/
+├── src/
+│   ├── agents/
+│   │   └── disputeAgent.ts
+│   ├── tools/
+│   │   ├── reportAnalyzer.ts
+│   │   ├── letterGenerator.ts
+│   │   ├── crcClient.ts
+│   │   └── slackNotifier.ts
+│   ├── workflows/
+│   │   ├── round1Dispute.ts
+│   │   └── round2and3Dispute.ts
+│   ├── webhooks/
+│   │   └── server.ts
+│   ├── types/
+│   │   └── index.ts
+│   ├── test/
+│   │   └── runTest.ts
+│   └── index.ts
+├── .env.example
+├── .gitignore
+├── .node-version       ← NEW FILE
+├── package.json
+├── railway.toml        ← UPDATED
+├── README.md
+└── tsconfig.json
