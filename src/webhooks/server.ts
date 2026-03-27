@@ -81,7 +81,10 @@ app.post('/trigger/client', async (req, res) => {
 // Quick sanity check — confirms env vars are loaded
 
 app.get('/status', async (_req, res) => {
-  const crcTest = await testCRCConnection().catch(e => ({ ok: false, message: e.message, keysPresent: false }));
+  const crcEnabled = process.env.CRC_API_ENABLED !== 'false';
+  const crcTest = crcEnabled 
+    ? await testCRCConnection().catch(e => ({ ok: false, message: e.message, keysPresent: false }))
+    : { ok: false, message: 'Disabled via CRC_API_ENABLED=false', keysPresent: false };
   res.json({
     env: {
       CRC_API_KEY:        process.env.CRC_API_KEY        ? '✅ Set' : '❌ Missing',
@@ -89,7 +92,10 @@ app.get('/status', async (_req, res) => {
       ANTHROPIC_API_KEY:  process.env.ANTHROPIC_API_KEY  ? '✅ Set' : '❌ Missing',
       SLACK_WEBHOOK_URL:  process.env.SLACK_WEBHOOK_URL  ? '✅ Set' : '❌ Missing',
     },
-    crc_connection: crcTest,
+    crc_api_enabled: process.env.CRC_API_ENABLED !== 'false',
+    crc_connection: process.env.CRC_API_ENABLED === 'false' 
+      ? { ok: false, message: 'CRC polling disabled — upgrade CRC plan to enable' }
+      : crcTest,
     scheduler: 'Running',
     uptime:    `${Math.floor(process.uptime())}s`,
   });
