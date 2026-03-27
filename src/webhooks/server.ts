@@ -1,178 +1,106 @@
 // ============================================================
-// JECI AI — Webhook Receiver
-// Railway entry point. CRC fires webhooks here.
+// JECI AI — Express Server + Scheduler
+// Railway entry point.
+// Runs the poll scheduler + exposes manual trigger endpoints.
 // ============================================================
 
-import express            from 'express';
-import { CRCWebhookPayload, CreditReport } from '../types/index.js';
-import { runRound1 }      from '../workflows/round1Dispute.js';
-import { runRound2, runRound3 } from '../workflows/round2and3Dispute.js';
-import {
-  notifyNewClientEnrolled,
-  notifyDeletion,
-  notifySlack,
-}                         from '../tools/slackNotifier.js';
+import express                        from 'express';
+import { startScheduler, pollCRCAndDispatch } from '../scheduler/pollScheduler.js';
+import { runDisputePipeline }         from '../agents/disputeAgent.js';
+import { notifySlack }                from '../tools/slackNotifier.js';
+import { CreditReport }               from '../types/index.js';
 
 const app  = express();
 const PORT = process.env.PORT ?? 3000;
 
 app.use(express.json());
 
-// ── Health check ─────────────────────────────────────────────
+// ── Health check ──────────────────────────────────────────────
 
 app.get('/', (_req, res) => {
   res.json({
-    status:  'JECI AI Dispute Agent — Online',
-    version: '1.0.0',
-    company: '700 Credit Club Experts | JECI Group',
+    status:    'JECI AI Dispute Agent — Online',
+    version:   '1.0.0',
+    company:   '700 Credit Club Experts | JECI Group',
+    scheduler: 'Active — polling CRC every 60 minutes',
   });
 });
 
-// ── New client enrolled ───────────────────────────────────────
-// CRC fires this when a client completes enrollment
+// ── Manual poll trigger ───────────────────────────────────────
+// Hit this to force an immediate poll without waiting for the interval.
+// Useful right after enrolling a new client.
 
-app.post('/webhook/new-client', async (req, res) => {
-  const payload = req.body as CRCWebhookPayload;
-  const { clientId, clientName } = payload;
+app.post('/poll/now', async (_req, res) => {
+  res.json({ message: 'Poll triggered', timestamp: new Date().toISOString() });
 
-  console.log(`\n📥 Webhook: new-client → ${clientId} (${clientName})`);
-
-  // Respond to CRC immediately (don't keep them waiting)
-  res.json({ received: true, clientId });
-
-  try {
-    await notifyNewClientEnrolled(clientName ?? 'Unknown', clientId);
-    // Note: full Round 1 kicks off once client uploads their credit report
-    await notifySlack(
-      `✅ ${clientName} enrolled. Awaiting credit report upload to begin AI audit.`,
-    );
-  } catch (err) {
-    console.error('new-client webhook error:', err);
-  }
-});
-
-// ── Report uploaded ───────────────────────────────────────────
-// CRC fires this when client uploads their credit report PDF
-
-app.post('/webhook/report-uploaded', async (req, res) => {
-  const payload = req.body as CRCWebhookPayload & { report?: CreditReport };
-  const { clientId, clientName, report } = payload;
-
-  console.log(`\n📥 Webhook: report-uploaded → ${clientId}`);
-  res.json({ received: true, clientId });
-
-  if (!report) {
-    await notifySlack(`⚠️ Report uploaded for ${clientName} but no parsed data received. Manual review needed.`);
-    return;
-  }
-
-  try {
-    // Kick off Round 1 dispute workflow
-    await runRound1(clientId, report);
-  } catch (err) {
-    console.error('report-uploaded workflow error:', err);
-    await notifySlack(`🚨 Round 1 failed for ${clientName} (${clientId}): ${(err as Error).message}`);
-  }
-});
-
-// ── Bureau response received ──────────────────────────────────
-// CRC fires this when a bureau responds to a Round 1 dispute
-
-app.post('/webhook/bureau-response', async (req, res) => {
-  const {
-    clientId,
-    clientName,
-    round,
-    deletions,
-    verifiedItems,
-    report,
-  } = req.body as CRCWebhookPayload & {
-    round:         number;
-    deletions:     string[];
-    verifiedItems: any[];
-    report:        CreditReport;
-  };
-
-  console.log(`\n📥 Webhook: bureau-response → ${clientId} (Round ${round})`);
-  res.json({ received: true });
-
-  try {
-    // Announce deletions
-    for (const deletion of (deletions ?? [])) {
-      await notifyDeletion(clientId, clientName ?? 'Client', deletion, 'Bureau');
-    }
-
-    // Escalate verified (refused) items to next round
-    if (verifiedItems?.length > 0 && round < 3) {
-      await notifySlack(
-        `⚡ ${verifiedItems.length} items verified by bureau for ${clientName}. ` +
-        `Escalating to Round ${round + 1}...`,
-      );
-
-      if (round === 1) {
-        await runRound2(clientId, report, verifiedItems);
-      } else if (round === 2) {
-        await runRound3(clientId, report, verifiedItems);
-      }
-    } else if (verifiedItems?.length === 0) {
-      await notifySlack(
-        `🎉 All items resolved for ${clientName}! Moving to Credit Building phase.`,
-      );
-    }
-  } catch (err) {
-    console.error('bureau-response webhook error:', err);
-    await notifySlack(`🚨 Bureau response processing failed for ${clientName}: ${(err as Error).message}`);
-  }
-});
-
-// ── Deletion confirmed ────────────────────────────────────────
-
-app.post('/webhook/deletion-confirmed', async (req, res) => {
-  const { clientId, clientName, creditor, bureau } = req.body;
-
-  console.log(`\n📥 Webhook: deletion-confirmed → ${clientId} (${creditor} / ${bureau})`);
-  res.json({ received: true });
-
-  await notifyDeletion(clientId, clientName, creditor, bureau);
-});
-
-// ── Lead created (from Facebook group / website) ──────────────
-
-app.post('/webhook/lead-created', async (req, res) => {
-  const { clientId, clientName, source } = req.body;
-
-  console.log(`\n📥 Webhook: lead-created → ${clientId}`);
-  res.json({ received: true });
-
-  await notifySlack(
-    `🎯 New lead: *${clientName}* via ${source ?? 'unknown source'} (ID: ${clientId})`,
+  // Run async so response fires immediately
+  pollCRCAndDispatch().catch(err =>
+    console.error('Manual poll error:', err),
   );
 });
 
-// ── Manual trigger endpoint (for testing) ─────────────────────
+// ── Manual single-client trigger ─────────────────────────────
+// Fire the dispute pipeline for one specific client immediately.
+// Useful for testing or forcing a retry.
+// Body: { clientId, round, report (optional) }
 
-app.post('/trigger/round1', async (req, res) => {
-  const { clientId, report } = req.body as { clientId: string; report: CreditReport };
+app.post('/trigger/client', async (req, res) => {
+  const { clientId, round = 1, report } = req.body as {
+    clientId: string;
+    round?: number;
+    report?: CreditReport;
+  };
 
-  if (!clientId || !report) {
-    return res.status(400).json({ error: 'clientId and report required' });
+  if (!clientId) {
+    return res.status(400).json({ error: 'clientId required' });
   }
 
-  res.json({ message: 'Round 1 triggered', clientId });
+  res.json({
+    message:  `Round ${round} triggered for ${clientId}`,
+    clientId,
+    round,
+  });
 
-  try {
-    await runRound1(clientId, report);
-  } catch (err) {
-    console.error('Manual Round 1 trigger error:', err);
-  }
+  // Build a minimal shell report if none provided
+  const reportToUse: CreditReport = report ?? {
+    clientId,
+    reportDate:   new Date(),
+    personalInfo: { name: clientId, address: '', city: '', state: 'FL', zip: '' },
+    scores:       { Equifax: 0, Experian: 0, TransUnion: 0 },
+    accounts:     [],
+    inquiries:    [],
+    publicRecords: [],
+  };
+
+  runDisputePipeline(clientId, reportToUse, round as 1 | 2 | 3)
+    .catch(err => console.error('Manual trigger error:', err));
 });
 
-// ── Start server ──────────────────────────────────────────────
+// ── Status endpoint ───────────────────────────────────────────
+// Quick sanity check — confirms env vars are loaded
+
+app.get('/status', (_req, res) => {
+  res.json({
+    env: {
+      CRC_API_KEY:       process.env.CRC_API_KEY       ? '✅ Set' : '❌ Missing',
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? '✅ Set' : '❌ Missing',
+      SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL ? '✅ Set' : '❌ Missing',
+    },
+    scheduler: 'Running',
+    uptime:    `${Math.floor(process.uptime())}s`,
+  });
+});
+
+// ── Start server + scheduler ──────────────────────────────────
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 JECI AI Dispute Agent running on port ${PORT}`);
+  console.log(`\n🚀 JECI AI Dispute Agent — Port ${PORT}`);
   console.log(`   700 Credit Club Experts | JECI Group`);
   console.log(`   Legal. Moral. Ethical & Factual Credit Services.\n`);
+
+  // Start the CRC poll scheduler (every 60 minutes)
+  const POLL_INTERVAL_MINUTES = parseInt(process.env.POLL_INTERVAL_MINUTES ?? '60');
+  startScheduler(POLL_INTERVAL_MINUTES);
 });
 
 export default app;

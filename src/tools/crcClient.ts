@@ -42,9 +42,28 @@ export async function getCRCClient(clientId: string): Promise<CRCClient> {
   return data;
 }
 
-export async function getAllActiveClients(): Promise<CRCClient[]> {
+export async function getAllActiveClients(): Promise<(CRCClient & { notes: string[] })[]> {
   const data = await crcFetch('/clients?status=active') as { clients: CRCClient[] };
-  return data.clients ?? [];
+  const clients = data.clients ?? [];
+
+  // Fetch notes per client so scheduler can read scheduled dates
+  const withNotes = await Promise.all(
+    clients.map(async (client) => {
+      const notes = await getClientNotes(client.id);
+      return { ...client, notes };
+    }),
+  );
+
+  return withNotes;
+}
+
+export async function getClientNotes(clientId: string): Promise<string[]> {
+  try {
+    const data = await crcFetch(`/client/${clientId}/notes`) as { notes: Array<{ note: string }> };
+    return (data.notes ?? []).map((n: { note: string }) => n.note);
+  } catch {
+    return [];
+  }
 }
 
 // ── Pipeline management ──────────────────────────────────────
