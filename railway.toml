@@ -11,4 +11,3 @@ healthcheckTimeout = 30
 
 [variables]
 NODE_VERSION = "20"
-```
