@@ -6,6 +6,7 @@
 
 import express                        from 'express';
 import { startScheduler, pollCRCAndDispatch } from '../scheduler/pollScheduler.js';
+import { testCRCConnection } from '../tools/crcClient.js';
 import { runDisputePipeline }         from '../agents/disputeAgent.js';
 import { notifySlack }                from '../tools/slackNotifier.js';
 import { CreditReport }               from '../types/index.js';
@@ -79,13 +80,16 @@ app.post('/trigger/client', async (req, res) => {
 // ── Status endpoint ───────────────────────────────────────────
 // Quick sanity check — confirms env vars are loaded
 
-app.get('/status', (_req, res) => {
+app.get('/status', async (_req, res) => {
+  const crcTest = await testCRCConnection().catch(e => ({ ok: false, message: e.message, keysPresent: false }));
   res.json({
     env: {
-      CRC_API_KEY:       process.env.CRC_API_KEY       ? '✅ Set' : '❌ Missing',
-      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? '✅ Set' : '❌ Missing',
-      SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL ? '✅ Set' : '❌ Missing',
+      CRC_API_KEY:        process.env.CRC_API_KEY        ? '✅ Set' : '❌ Missing',
+      CRC_SECRET_KEY:     process.env.CRC_SECRET_KEY     ? '✅ Set' : '❌ Missing',
+      ANTHROPIC_API_KEY:  process.env.ANTHROPIC_API_KEY  ? '✅ Set' : '❌ Missing',
+      SLACK_WEBHOOK_URL:  process.env.SLACK_WEBHOOK_URL  ? '✅ Set' : '❌ Missing',
     },
+    crc_connection: crcTest,
     scheduler: 'Running',
     uptime:    `${Math.floor(process.uptime())}s`,
   });
