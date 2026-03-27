@@ -109,6 +109,12 @@ function buildReportShell(client: CRCClient) {
 // ── Core poll function ────────────────────────────────────────
 
 export async function pollCRCAndDispatch(): Promise<void> {
+  // Guard: skip if CRC API disabled (free trial / plan not upgraded)
+  if (process.env.CRC_API_ENABLED === 'false') {
+    console.log("⏸️  CRC polling disabled — CRC_API_ENABLED=false. Set to true once on Grow/Scale plan.");
+    return;
+  }
+
   const startTime = Date.now();
   console.log(`\n⏰ [${new Date().toISOString()}] JECI AI Scheduler — Poll starting...`);
 
