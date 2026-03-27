@@ -103,6 +103,7 @@ export async function runRound1(
       {
         clientName:    client.name,
         clientAddress: `${client.address}, ${client.city}, ${client.state} ${client.zip}`,
+        items:         round1Items,
       },
       1,
       byBureau,

@@ -70,6 +70,7 @@ export async function runRound2(
       {
         clientName:    client.name,
         clientAddress: `${client.address}, ${client.city}, ${client.state} ${client.zip}`,
+        items:         round2Items,
       },
       2,
       byBureau,
@@ -178,6 +179,7 @@ export async function runRound3(
       {
         clientName:    client.name,
         clientAddress: `${client.address}, ${client.city}, ${client.state} ${client.zip}`,
+        items:         round3Items,
       },
       3,
       byBureau,

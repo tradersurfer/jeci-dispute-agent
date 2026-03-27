@@ -1,178 +1,148 @@
 // ============================================================
-// JECI AI — Mastra Dispute Agent
+// JECI AI — Dispute Agent Orchestrator
 // 700 Credit Club Experts | JECI Group
+// Pure TypeScript — no external agent framework needed
 // ============================================================
 
-import { Agent, createTool } from '@mastra/core';
-import { z }                  from 'zod';
+import { CreditReport, DisputeRound, WorkflowResult } from '../types/index.js';
+import { analyzeReport, groupDisputesByBureau, filterItemsForRound } from '../tools/reportAnalyzer.js';
+import { generateLettersForRound } from '../tools/letterGenerator.js';
+import {
+  getCRCClient,
+  updatePipelineStage,
+  attachDisputeLetter,
+  addCRCNote,
+} from '../tools/crcClient.js';
+import {
+  notifyAnalysisComplete,
+  notifyRoundComplete,
+  notifyError,
+  notifySlack,
+} from '../tools/slackNotifier.js';
 
-import { analyzeReport }              from '../tools/reportAnalyzer.js';
-import { generateDisputeLetter }      from '../tools/letterGenerator.js';
-import { getCRCClient, addCRCNote, updatePipelineStage } from '../tools/crcClient.js';
-import { notifySlack }                from '../tools/slackNotifier.js';
-import { CreditReport }               from '../types/index.js';
+// ── Core Agent: run the full dispute pipeline for a client ───
 
-// ── Tool: Analyze Credit Report ──────────────────────────────
+export async function runDisputePipeline(
+  clientId: string,
+  report: CreditReport,
+  round: DisputeRound = 1,
+  previouslyFiled?: Set<string>,
+): Promise<WorkflowResult> {
 
-const analyzeReportTool = createTool({
-  id: 'analyze_credit_report',
-  description:
-    'Analyzes a credit report for FCRA/FDCPA violations and disputable items. ' +
-    'Returns a prioritized list of dispute targets with legal citations.',
-  inputSchema: z.object({
-    report: z.any().describe('The parsed CreditReport object'),
-  }),
-  execute: async ({ context }) => {
-    const analysis = analyzeReport(context.report as CreditReport);
-    return {
-      totalItems:        analysis.disputeItems.length,
-      quickWins:         analysis.quickWins.length,
-      estimatedRecovery: analysis.estimatedPointRecovery,
-      humanReviewNeeded: analysis.humanReviewRequired,
-      summary:           analysis.summary,
-      topItems:          analysis.disputeItems.slice(0, 10).map(i => ({
-        creditor: i.creditorName,
-        reason:   i.reasonDescription,
-        priority: i.priority,
-        bureau:   i.bureau,
-        rate:     i.expectedDeletionRate,
-      })),
-    };
-  },
-});
+  console.log(`\n🤖 700CreditAI — Round ${round} starting for ${clientId}`);
+  const errors: string[] = [];
+  let lettersGenerated = 0;
 
-// ── Tool: Generate Single Dispute Letter ─────────────────────
+  try {
+    const client = await getCRCClient(clientId);
+    console.log(`  → Client: ${client.name}`);
 
-const generateLetterTool = createTool({
-  id: 'generate_dispute_letter',
-  description: 'Generates a single FCRA/FDCPA-compliant dispute letter for a specific bureau and round.',
-  inputSchema: z.object({
-    clientName:    z.string(),
-    clientAddress: z.string(),
-    bureau:        z.enum(['Equifax', 'Experian', 'TransUnion']),
-    round:         z.number().int().min(1).max(3),
-    items:         z.any().describe('Array of DisputeItem objects'),
-  }),
-  execute: async ({ context }) => {
-    const letter = await generateDisputeLetter(
+    const analysis = analyzeReport(report);
+    console.log(`  → ${analysis.disputeItems.length} disputable items found`);
+    console.log(`  → Quick wins: ${analysis.quickWins.length}`);
+    console.log(`  → Est. recovery: +${analysis.estimatedPointRecovery} pts`);
+
+    if (round === 1) {
+      await notifyAnalysisComplete(analysis);
+    }
+
+    const roundItems = filterItemsForRound(analysis.disputeItems, round, previouslyFiled);
+    console.log(`  → Round ${round} targets: ${roundItems.length} items`);
+
+    if (roundItems.length === 0) {
+      await notifySlack(`ℹ️ Round ${round} for ${client.name}: No items — advancing pipeline.`);
+      const stageMap: Record<number, string> = {
+        1: 'Round 1 Disputes Filed',
+        2: 'Round 2 Disputes Filed',
+        3: 'Credit Building Phase',
+      };
+      await updatePipelineStage(clientId, stageMap[round] as any);
+      return {
+        clientId, round, success: true,
+        lettersGenerated: 0, itemsTargeted: 0,
+        bureausTargeted: [], errors: [],
+        nextAction: 'No items — advancing pipeline',
+        nextActionDate: new Date(),
+      };
+    }
+
+    const byBureau = groupDisputesByBureau(roundItems);
+    const bureausTargeted = [...byBureau.keys()];
+
+    const letters = await generateLettersForRound(
       {
-        clientName:    context.clientName,
-        clientAddress: context.clientAddress,
-        bureau:        context.bureau as 'Equifax' | 'Experian' | 'TransUnion',
-        items:         context.items,
+        clientName: client.name,
+        clientAddress: `${client.address}, ${client.city}, ${client.state} ${client.zip}`,
+        items: roundItems,
       },
-      context.round as 1 | 2 | 3,
+      round,
+      byBureau,
     );
-    return {
-      filename:  letter.filename,
-      bureau:    letter.bureau,
-      round:     letter.round,
-      preview:   letter.letterContent.slice(0, 200) + '...',
-      generated: letter.generatedAt,
+
+    for (const letter of letters) {
+      try {
+        letter.clientId = clientId;
+        await attachDisputeLetter(clientId, letter);
+        lettersGenerated++;
+      } catch (err) {
+        const msg = `Failed to attach ${letter.bureau} letter: ${(err as Error).message}`;
+        errors.push(msg);
+        console.error(`  ✗ ${msg}`);
+      }
+    }
+
+    await addCRCNote(
+      clientId,
+      `700CreditAI Round ${round} Complete:\n` +
+      `• ${roundItems.length} items targeted\n` +
+      `• ${lettersGenerated} letters generated\n` +
+      `• Bureaus: ${bureausTargeted.join(', ')}\n` +
+      `• Est. recovery: +${analysis.estimatedPointRecovery} pts`,
+    );
+
+    const stageMap: Record<number, string> = {
+      1: 'Round 1 Disputes Filed',
+      2: 'Round 2 Disputes Filed',
+      3: 'Round 3 / Advanced Legal',
     };
-  },
-});
+    await updatePipelineStage(clientId, stageMap[round] as any);
 
-// ── Tool: Get CRC Client ─────────────────────────────────────
+    const daysUntilNext = round === 3 ? 15 : 35;
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + daysUntilNext);
 
-const getClientTool = createTool({
-  id: 'get_crc_client',
-  description: 'Fetches client profile from Credit Repair Cloud.',
-  inputSchema: z.object({
-    clientId: z.string(),
-  }),
-  execute: async ({ context }) => {
-    const client = await getCRCClient(context.clientId);
-    return client;
-  },
-});
+    await addCRCNote(clientId,
+      `700CreditAI_SCHEDULE: Round ${round + 1} check on ${nextDate.toLocaleDateString()}`,
+    );
 
-// ── Tool: Update Pipeline Stage ──────────────────────────────
+    const nextActionMap: Record<number, string> = {
+      1: 'Round 2 — Creditor Direct Disputes',
+      2: 'Round 3 — Advanced Legal Escalation',
+      3: 'Await 15-day legal response',
+    };
 
-const updateStageTool = createTool({
-  id: 'update_pipeline_stage',
-  description: 'Moves a client to a new stage in the CRC pipeline.',
-  inputSchema: z.object({
-    clientId: z.string(),
-    stage:    z.string(),
-  }),
-  execute: async ({ context }) => {
-    await updatePipelineStage(context.clientId, context.stage as any);
-    return { success: true, clientId: context.clientId, stage: context.stage };
-  },
-});
+    const result: WorkflowResult = {
+      clientId, round, success: true,
+      lettersGenerated, itemsTargeted: roundItems.length,
+      bureausTargeted, errors,
+      nextAction: nextActionMap[round],
+      nextActionDate: nextDate,
+    };
 
-// ── Tool: Add CRC Note ───────────────────────────────────────
+    await notifyRoundComplete(result);
+    console.log(`\n✅ Round ${round} complete — ${lettersGenerated} letters generated.`);
+    return result;
 
-const addNoteTool = createTool({
-  id: 'add_crc_note',
-  description: 'Adds a note to a client\'s CRC file.',
-  inputSchema: z.object({
-    clientId: z.string(),
-    note:     z.string(),
-  }),
-  execute: async ({ context }) => {
-    await addCRCNote(context.clientId, context.note);
-    return { success: true };
-  },
-});
-
-// ── Tool: Slack Notify ───────────────────────────────────────
-
-const slackTool = createTool({
-  id: 'slack_notify',
-  description: 'Sends a notification to the 700 Credit Club Slack workspace.',
-  inputSchema: z.object({
-    message: z.string(),
-  }),
-  execute: async ({ context }) => {
-    await notifySlack(context.message);
-    return { sent: true };
-  },
-});
-
-// ── The Agent ────────────────────────────────────────────────
-
-export const jecAIAgent = new Agent({
-  name: '700CreditAI',
-
-  instructions: `
-You are JECI AI, the expert Consumer Law Restoration agent for 700 Credit Club Experts.
-You operate under FCRA (15 USC 1681), FDCPA (15 USC 1692), and CROA.
-
-Your mission: Analyze credit reports, identify every disputable inaccuracy, 
-generate legally precise dispute letters, and manage the 3-round dispute process.
-
-Core principles:
-1. ACCURACY FIRST — Never dispute accurate items. Only challenge inaccuracies.
-2. LEGAL GROUNDING — Every dispute must cite specific statute sections.
-3. PRIORITY ORDER — Always tackle CRITICAL items first, then HIGH, MEDIUM, LOW.
-4. ESCALATION PATH — Round 1 (bureaus) → Round 2 (creditors) → Round 3 (legal).
-5. HUMAN ESCALATION — Flag items requiring attorney review immediately via Slack.
-6. COMPLIANCE — All actions must remain FCRA/FDCPA/CROA compliant.
-
-When analyzing a report:
-- Use analyze_credit_report tool first
-- Always notify Slack of analysis results
-- Flag any human review items immediately
-- Recommend round based on analysis
-
-When generating letters:
-- One letter per bureau per round
-- Use generate_dispute_letter for each bureau
-- Always log activity with add_crc_note
-- Update pipeline stage after completion
-
-You represent 700 Credit Club Experts. Every action you take reflects on 
-the firm's "Legal, Moral, Ethical & Factual Credit Services" standard.
-  `.trim(),
-
-  tools: {
-    analyze_credit_report: analyzeReportTool,
-    generate_dispute_letter: generateLetterTool,
-    get_crc_client: getClientTool,
-    update_pipeline_stage: updateStageTool,
-    add_crc_note: addNoteTool,
-    slack_notify: slackTool,
-  },
-});
+  } catch (err) {
+    const error = err as Error;
+    await notifyError(`Round ${round} for ${clientId}`, error);
+    console.error(`\n✗ Round ${round} failed:`, error.message);
+    return {
+      clientId, round, success: false,
+      lettersGenerated, itemsTargeted: 0,
+      bureausTargeted: [], errors: [error.message],
+      nextAction: `Retry Round ${round}`,
+      nextActionDate: new Date(),
+    };
+  }
+}
