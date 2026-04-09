@@ -1,51 +1,57 @@
 // ============================================================
 // JECI AI — CRC Poll Scheduler
-// Since CRC has no native webhooks, we poll on a schedule.
-// Runs every hour. Checks every active client's pipeline stage
-// and triggers the right dispute round automatically.
+// Since CRC has no native webhooks in the base plan, we poll
+// on a schedule. Runs every hour. Checks every active client's
+// pipeline stage and triggers the right dispute round automatically.
+//
+// Report data priority order:
+//   1. Credit Hero Score API (real-time 3-bureau report)
+//   2. CRC Tradelines API  (if CRC_API_ENABLED=true)
+//   3. HALT with Slack alert (no report = no disputes)
 // ============================================================
 
-import { getCRCClient, getAllActiveClients, addCRCNote } from '../tools/crcClient.js';
+import { getCRCClient, getAllActiveClients, addCRCNote, crcFetch } from '../tools/crcClient.js';
 import { runDisputePipeline } from '../agents/disputeAgent.js';
 import { notifySlack, notifyError } from '../tools/slackNotifier.js';
-import { CRCClient } from '../types/index.js';
+import { fetchCreditHeroReport, fetchCRCTradelines } from '../tools/creditHeroClient.js';
+import { emailClientReportNeeded } from '../tools/emailer.js';
+import { getCachedReport, cacheReport } from '../db/disputeDb.js';
+import { CRCClient, CreditReport } from '../types/index.js';
 
 // ── How many days to wait between rounds ─────────────────────
-const DAYS_BEFORE_ROUND_2 = 35;
-const DAYS_BEFORE_ROUND_3 = 35;
+const DAYS_BEFORE_ROUND_2     = 35;
+const DAYS_BEFORE_ROUND_3     = 35;
 const DAYS_BEFORE_LEGAL_REVIEW = 15;
 
 // ── Stage → round mapping ─────────────────────────────────────
-// Which pipeline stages mean "ready for next action"
 const STAGE_ACTIONS: Record<string, {
-  nextRound: number;
-  waitDays: number;
-  stageSetAt: string; // Note prefix JECI AI writes when entering this stage
+  nextRound:  number;
+  waitDays:   number;
+  stageSetAt: string;
 }> = {
   'Enrolled / Active': {
-    nextRound: 1,
-    waitDays: 0, // Fire immediately on enrollment
+    nextRound:  1,
+    waitDays:   0,
     stageSetAt: 'JECI_AI_ENROLLED',
   },
   'Round 1 Disputes Filed': {
-    nextRound: 2,
-    waitDays: DAYS_BEFORE_ROUND_2,
+    nextRound:  2,
+    waitDays:   DAYS_BEFORE_ROUND_2,
     stageSetAt: 'JECI_AI_SCHEDULE: Round 2',
   },
   'Round 2 Disputes Filed': {
-    nextRound: 3,
-    waitDays: DAYS_BEFORE_ROUND_3,
+    nextRound:  3,
+    waitDays:   DAYS_BEFORE_ROUND_3,
     stageSetAt: 'JECI_AI_SCHEDULE: Round 3',
   },
   'Round 3 / Advanced Legal': {
-    nextRound: 0, // No auto-next — needs human review
-    waitDays: DAYS_BEFORE_LEGAL_REVIEW,
+    nextRound:  0, // No auto-next — needs human review
+    waitDays:   DAYS_BEFORE_LEGAL_REVIEW,
     stageSetAt: 'JECI_AI_SCHEDULE: Legal review',
   },
 };
 
 // ── Parse scheduled date from CRC notes ──────────────────────
-// We store "JECI_AI_SCHEDULE: Round X check on MM/DD/YYYY" in notes
 function parseScheduledDate(notes: string[]): Date | null {
   for (const note of notes) {
     const match = note.match(/JECI_AI_SCHEDULE:.*on (\d{1,2}\/\d{1,2}\/\d{4})/);
@@ -62,56 +68,84 @@ function daysSince(date: Date): number {
 }
 
 function isReadyForNextRound(
-  client: CRCClient & { notes?: string[] },
+  client:   CRCClient & { notes?: string[] },
   waitDays: number,
 ): boolean {
-  // No wait required (e.g. fresh enrollment)
   if (waitDays === 0) return true;
 
-  // Look for scheduled date in client notes
-  const notes = client.notes ?? [];
+  const notes         = client.notes ?? [];
   const scheduledDate = parseScheduledDate(notes);
 
   if (scheduledDate) {
     return new Date() >= scheduledDate;
   }
 
-  // Fallback: check enrolledAt + wait days
   return daysSince(client.enrolledAt) >= waitDays;
 }
 
-// ── Mock report builder ───────────────────────────────────────
-// In production, this would fetch the actual parsed report from
-// your storage (S3, CRC documents, etc.)
-// For now returns a minimal report shell — swap in real parsing later
-function buildReportShell(client: CRCClient) {
-  return {
-    clientId: client.id,
-    reportDate: new Date(),
-    personalInfo: {
-      name: client.name,
-      address: client.address,
-      city: client.city,
-      state: client.state,
-      zip: client.zip,
-    },
-    scores: {
-      Equifax: client.scores?.Equifax ?? 0,
-      Experian: client.scores?.Experian ?? 0,
-      TransUnion: client.scores?.TransUnion ?? 0,
-    },
-    accounts: [],
-    inquiries: [],
-    publicRecords: [],
+// ── Credit Report Resolver ────────────────────────────────────
+// Tries to get a real, populated credit report for the client.
+// Priority: Credit Hero Score → CRC Tradelines → DB cache → HALT
+//
+// Returns null if no report data is available (caller should halt).
+
+export async function resolveClientReport(client: CRCClient): Promise<CreditReport | null> {
+  const personalInfo = {
+    name:    client.name,
+    address: client.address,
+    city:    client.city,
+    state:   client.state,
+    zip:     client.zip,
   };
+
+  const scores = {
+    Equifax:    client.scores?.Equifax    ?? 0,
+    Experian:   client.scores?.Experian   ?? 0,
+    TransUnion: client.scores?.TransUnion ?? 0,
+  };
+
+  // ── 1. Try Credit Hero Score API ──────────────────────────
+  if (client.email) {
+    const chsReport = await fetchCreditHeroReport(client.id, client.email);
+    if (chsReport && chsReport.accounts.length > 0) {
+      cacheReport(client.id, 'credit_hero', chsReport);
+      return chsReport;
+    }
+  }
+
+  // ── 2. Try CRC Tradelines (requires Grow/Scale plan) ──────
+  if (process.env.CRC_API_ENABLED !== 'false') {
+    const crcReport = await fetchCRCTradelines(
+      client.id,
+      personalInfo,
+      scores,
+      (path, xmlData) => crcFetch(path, 'POST', xmlData),
+    );
+    if (crcReport.accounts.length > 0) {
+      cacheReport(client.id, 'crc_tradelines', crcReport);
+      return crcReport;
+    }
+  }
+
+  // ── 3. Try DB cache (last successfully pulled report) ─────
+  const cached = getCachedReport(client.id);
+  if (cached) {
+    const hoursOld = (Date.now() - new Date(cached.pulledAt).getTime()) / (1000 * 60 * 60);
+    if (hoursOld < 168) { // Use cached report if less than 7 days old
+      console.log(`  ℹ️  Using cached ${cached.source} report (${hoursOld.toFixed(0)}h old)`);
+      return cached.report as CreditReport;
+    }
+  }
+
+  // ── 4. No report available — HALT ────────────────────────
+  return null;
 }
 
 // ── Core poll function ────────────────────────────────────────
 
 export async function pollCRCAndDispatch(): Promise<void> {
-  // Guard: skip if CRC API disabled (free trial / plan not upgraded)
   if (process.env.CRC_API_ENABLED === 'false') {
-    console.log("⏸️  CRC polling disabled — CRC_API_ENABLED=false. Set to true once on Grow/Scale plan.");
+    console.log('  ⏸️  CRC polling disabled (CRC_API_ENABLED=false). Upgrade CRC plan to Grow/Scale and flip to true.');
     return;
   }
 
@@ -119,11 +153,11 @@ export async function pollCRCAndDispatch(): Promise<void> {
   console.log(`\n⏰ [${new Date().toISOString()}] JECI AI Scheduler — Poll starting...`);
 
   let processed = 0;
-  let skipped = 0;
-  let errors = 0;
+  let skipped   = 0;
+  let errors    = 0;
+  let halted    = 0;
 
   try {
-    // 1. Pull all active clients from CRC
     const clients = await getAllActiveClients();
     console.log(`  → Found ${clients.length} active clients`);
 
@@ -132,25 +166,21 @@ export async function pollCRCAndDispatch(): Promise<void> {
       return;
     }
 
-    // 2. Check each client
     for (const client of clients) {
       try {
         const action = STAGE_ACTIONS[client.pipelineStage];
 
-        // Skip clients not in an actionable stage
         if (!action) {
           skipped++;
           continue;
         }
 
-        // Skip if human review stage (round 3 legal — needs you)
         if (action.nextRound === 0) {
           console.log(`  ⚖️  ${client.name} — Awaiting legal review`);
           skipped++;
           continue;
         }
 
-        // Check if enough time has passed
         const clientWithNotes = client as CRCClient & { notes?: string[] };
         if (!isReadyForNextRound(clientWithNotes, action.waitDays)) {
           console.log(`  ⏳ ${client.name} — Not ready yet (Round ${action.nextRound})`);
@@ -158,21 +188,37 @@ export async function pollCRCAndDispatch(): Promise<void> {
           continue;
         }
 
-        // ✅ This client is ready — fire the dispute pipeline
-        console.log(`\n  🚀 ${client.name} — Triggering Round ${action.nextRound}`);
+        // ── Resolve credit report ──────────────────────────
+        console.log(`\n  🔍 ${client.name} — Resolving credit report...`);
+        const report = await resolveClientReport(client);
 
-        const report = buildReportShell(client);
+        if (!report || report.accounts.length === 0) {
+          // No report — halt and notify both Slack and client
+          halted++;
+          const msg =
+            `⚠️ *Report Not Found — Halted*\n` +
+            `*Client:* ${client.name} (${client.id})\n` +
+            `*Stage:* ${client.pipelineStage}\n` +
+            `*Action:* Cannot proceed. Client must pull and sync their 3-bureau ` +
+            `credit report from Credit Hero Score or upload it to CRC.`;
+
+          console.warn(`  ⚠️  No report found for ${client.name} — halting`);
+          await notifySlack(msg);
+          await emailClientReportNeeded(client).catch(() => {});
+          continue;
+        }
+
+        // ✅ Report found — fire the dispute pipeline
+        console.log(`\n  🚀 ${client.name} — Triggering Round ${action.nextRound}`);
 
         await runDisputePipeline(
           client.id,
-          report as any,
+          report,
           action.nextRound as 1 | 2 | 3,
         );
 
         processed++;
-
-        // Small delay between clients to avoid hammering the API
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 2000)); // Rate limit between clients
 
       } catch (clientErr) {
         errors++;
@@ -191,14 +237,14 @@ export async function pollCRCAndDispatch(): Promise<void> {
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
   console.log(`\n✅ Poll complete in ${elapsed}s`);
-  console.log(`   Processed: ${processed} | Skipped: ${skipped} | Errors: ${errors}`);
+  console.log(`   Processed: ${processed} | Skipped: ${skipped} | Halted: ${halted} | Errors: ${errors}`);
 
-  // Only notify Slack if something actually happened
-  if (processed > 0 || errors > 0) {
+  if (processed > 0 || errors > 0 || halted > 0) {
     await notifySlack(
       `⏰ *JECI AI Scheduler Run Complete*\n` +
       `• Clients processed: ${processed}\n` +
       `• Skipped (not ready): ${skipped}\n` +
+      `• Halted (no report): ${halted}\n` +
       `• Errors: ${errors}\n` +
       `• Duration: ${elapsed}s`,
     );
@@ -206,19 +252,16 @@ export async function pollCRCAndDispatch(): Promise<void> {
 }
 
 // ── Interval-based scheduler ──────────────────────────────────
-// Runs every X minutes. Default: 60 minutes.
 
 export function startScheduler(intervalMinutes = 60): NodeJS.Timeout {
   const intervalMs = intervalMinutes * 60 * 1000;
 
   console.log(`\n🕐 JECI AI Scheduler started — polling every ${intervalMinutes} minutes`);
 
-  // Run once immediately on startup
   pollCRCAndDispatch().catch(err =>
     console.error('Initial poll error:', err),
   );
 
-  // Then on interval
   return setInterval(() => {
     pollCRCAndDispatch().catch(err =>
       console.error('Scheduled poll error:', err),
