@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  ::selection {
+    background-color: rgba(201, 168, 76, 0.25);
+    color: #F0F0F5;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0A0A0F;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1E1E2E;
+    border-radius: 3px;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-credora-blue text-white font-semibold px-6 py-3 rounded-lg
+           hover:opacity-90 active:opacity-80 transition-opacity
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-gold {
+    @apply bg-credora-gold text-credora-bg font-bold px-6 py-3 rounded-lg
+           hover:opacity-90 active:opacity-80 transition-opacity
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-outline {
+    @apply border border-credora-border text-credora-text px-6 py-3 rounded-lg
+           hover:border-credora-gold/50 hover:bg-credora-gold/5 transition-all
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .card {
+    @apply bg-credora-surface border border-credora-border rounded-2xl p-6;
+  }
+
+  .card-elevated {
+    @apply bg-credora-surface-2 border border-credora-border rounded-2xl p-6
+           shadow-[0_0_40px_rgba(79,142,247,0.05)];
+  }
+
+  .gold-text {
+    @apply text-credora-gold;
+  }
+
+  .section-label {
+    @apply text-credora-muted text-sm font-medium uppercase tracking-widest;
+  }
+}
