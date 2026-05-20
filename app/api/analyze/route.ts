@@ -71,7 +71,7 @@ export async function POST(request: Request) {
 
     const letters = await generateLettersForRound(
       letterParams,
-      disputesByBureau,
+      Object.fromEntries(disputesByBureau) as Record<Bureau, DisputeItem[]>,
       1
     );
 
