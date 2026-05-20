@@ -1,6 +1,6 @@
 // ============================================================
 // JECI AI Dispute Agent — Core Types
-// 700 Credit Club Experts | JECI Group
+// JECI Group
 // ============================================================
 
 export type Bureau = 'Equifax' | 'Experian' | 'TransUnion';

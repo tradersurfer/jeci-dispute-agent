@@ -22,7 +22,7 @@ app.get('/', (_req, res) => {
   res.json({
     status:    'JECI AI Dispute Agent — Online',
     version:   '1.0.0',
-    company:   '700 Credit Club Experts | JECI Group',
+    company:   'JECI Group',
     scheduler: 'Active — polling CRC every 60 minutes',
   });
 });
@@ -105,7 +105,7 @@ app.get('/status', async (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`\n🚀 JECI AI Dispute Agent — Port ${PORT}`);
-  console.log(`   700 Credit Club Experts | JECI Group`);
+  console.log(`   JECI Group`);
   console.log(`   Legal. Moral. Ethical & Factual Credit Services.\n`);
 
   // Start the CRC poll scheduler (every 60 minutes)
