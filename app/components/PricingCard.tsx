@@ -25,57 +25,68 @@ export default function PricingCard({
 }: PricingCardProps) {
   return (
     <div
-      className={`relative flex flex-col rounded-2xl border p-8 transition-all duration-200 ${
+      className={`relative flex flex-col rounded border p-6 transition-all duration-150 ${
         highlighted
-          ? 'border-credora-gold bg-credora-surface shadow-[0_0_60px_rgba(201,168,76,0.12)]'
-          : 'border-credora-border bg-credora-surface hover:border-credora-gold/40'
+          ? 'border-jeci-gold bg-jeci-surface-2 shadow-[0_0_40px_rgba(201,168,76,0.08)]'
+          : 'border-jeci-border bg-jeci-surface hover:border-jeci-gold/30'
       }`}
     >
       {highlighted && (
-        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-          <span className="bg-credora-gold text-credora-bg text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider">
-            Most Popular
-          </span>
-        </div>
+        <div className="absolute -top-px left-0 right-0 h-px bg-jeci-gold/60" />
       )}
 
-      <div className="mb-6">
-        <p className="text-credora-muted text-sm font-medium uppercase tracking-wider mb-2">
-          {name}
-        </p>
-        <div className="flex items-end gap-1 mb-3">
-          <span className="font-display text-4xl font-bold text-credora-text">{price}</span>
-          {type === 'recurring' && (
-            <span className="text-credora-muted text-sm mb-1.5">billed monthly</span>
+      {/* Plan header */}
+      <div className="mb-5 pb-5 border-b border-jeci-border">
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-mono text-xs text-jeci-muted uppercase tracking-widest">
+            {name}
+          </span>
+          {highlighted && (
+            <span className="font-mono text-xs text-jeci-gold border border-jeci-gold/40 px-2 py-0.5 rounded">
+              POPULAR
+            </span>
           )}
         </div>
-        <p className="text-credora-muted text-sm leading-relaxed">{description}</p>
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-3xl font-bold text-jeci-text">{price}</span>
+          {type === 'recurring' && (
+            <span className="font-mono text-xs text-jeci-muted">/mo</span>
+          )}
+          {type === 'one-time' && (
+            <span className="font-mono text-xs text-jeci-muted">one-time</span>
+          )}
+        </div>
+        <p className="text-jeci-muted text-sm mt-2 leading-relaxed">{description}</p>
       </div>
 
-      <ul className="space-y-3 mb-8 flex-1">
+      {/* Features */}
+      <ul className="space-y-2.5 mb-6 flex-1">
         {features.map((f) => (
-          <li key={f} className="flex items-start gap-3 text-sm">
-            <span className="text-credora-gold mt-0.5 flex-shrink-0">✓</span>
-            <span className={f.startsWith('Everything') ? 'text-credora-gold font-medium' : 'text-credora-text/80'}>
+          <li key={f} className="flex items-start gap-2.5 text-sm font-mono">
+            <span className={`flex-shrink-0 mt-0.5 ${f.startsWith('Everything') ? 'text-jeci-gold' : 'text-jeci-success'}`}>
+              {f.startsWith('Everything') ? '↳' : '[✓]'}
+            </span>
+            <span className={f.startsWith('Everything') ? 'text-jeci-gold' : 'text-jeci-text/75'}>
               {f}
             </span>
           </li>
         ))}
       </ul>
 
+      {/* CTA */}
       <button
         onClick={onSelect}
         disabled={loading}
-        className={`w-full py-3.5 rounded-lg font-semibold text-sm transition-all ${
+        className={`w-full py-3 rounded font-mono font-bold text-sm tracking-wide transition-all ${
           highlighted
-            ? 'bg-credora-gold text-credora-bg hover:opacity-90 active:opacity-80'
-            : 'bg-credora-blue text-white hover:opacity-90 active:opacity-80'
-        } disabled:opacity-50 disabled:cursor-not-allowed`}
+            ? 'bg-jeci-gold text-jeci-bg hover:opacity-90'
+            : 'bg-jeci-blue/10 border border-jeci-blue/40 text-jeci-blue hover:bg-jeci-blue/20'
+        } disabled:opacity-40 disabled:cursor-not-allowed`}
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2">
-            <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-            Redirecting…
+            <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            CONNECTING...
           </span>
         ) : (
           cta

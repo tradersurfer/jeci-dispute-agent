@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Playfair_Display, Inter } from 'next/font/google';
+import { Playfair_Display, Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
 const playfair = Playfair_Display({
@@ -14,21 +14,27 @@ const inter = Inter({
   display: 'swap',
 });
 
+const jetbrains = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'Credora AI — AI-Powered Credit Intelligence',
+  title: 'JECI Credit — AI-Powered Credit Intelligence',
   description:
-    'Your credit report has errors. Credora AI finds them and fights back — automatically. Bureau-specific dispute letters in minutes.',
+    'JECI AI scans your credit report for FCRA violations, generates bureau-specific dispute letters, and delivers a ready-to-mail package. Find it. Fight it. Fix it.',
   openGraph: {
-    title: 'Credora AI — AI-Powered Credit Intelligence',
-    description: 'Upload your credit report. Get dispute-ready letters for all 3 bureaus.',
+    title: 'JECI Credit — AI-Powered Credit Intelligence',
+    description: 'Find it. Fight it. Fix it. — AI dispute letters for all 3 bureaus.',
     type: 'website',
   },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
-      <body className="bg-credora-bg text-credora-text font-body antialiased min-h-screen">
+    <html lang="en" className={`${playfair.variable} ${inter.variable} ${jetbrains.variable}`}>
+      <body className="bg-jeci-bg text-jeci-text font-body antialiased min-h-screen">
         {children}
       </body>
     </html>

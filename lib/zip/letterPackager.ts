@@ -14,17 +14,13 @@ export async function buildDisputeZip(
   const zip = new JSZip();
   const date = format(new Date(), 'yyyy-MM-dd');
   const safeName = clientName.replace(/[^a-zA-Z0-9]/g, '_');
-  const folderName = `Credora_Dispute_${safeName}_${date}`;
-  const root = zip.folder(folderName)!;
+  const root = zip.folder(`JECI_Dispute_${safeName}_${date}`)!;
 
   root.file('README.txt', buildReadme(clientName, letters));
 
   for (const letter of letters) {
-    const bureauFolder = root.folder(letter.bureau)!;
-    bureauFolder.file(
-      `Dispute_Letter_${letter.bureau}_Round${letter.round}.txt`,
-      letter.content
-    );
+    const folder = root.folder(letter.bureau)!;
+    folder.file(`JECI_Round${letter.round}_${letter.bureau}_Dispute.txt`, letter.content);
   }
 
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
@@ -32,74 +28,77 @@ export async function buildDisputeZip(
 
 function buildReadme(clientName: string, letters: PackagedLetter[]): string {
   const bureauAddresses: Record<string, string> = {
-    Experian: 'Experian\nP.O. Box 4500\nAllen, TX 75013',
-    Equifax: 'Equifax Information Services\nP.O. Box 740256\nAtlanta, GA 30374-0256',
-    TransUnion: 'TransUnion Consumer Solutions\nP.O. Box 2000\nChester, PA 19016',
+    Experian:    'Experian\nP.O. Box 4500\nAllen, TX 75013',
+    Equifax:     'Equifax Information Services\nP.O. Box 740256\nAtlanta, GA 30374-0256',
+    TransUnion:  'TransUnion Consumer Solutions\nP.O. Box 2000\nChester, PA 19016',
   };
 
   const letterList = letters
-    .map((l) => `  • ${l.bureau} — Round ${l.round} Dispute Letter`)
+    .map((l) => `  [✓] ${l.bureau} — Round ${l.round} Dispute Letter`)
     .join('\n');
 
-  const addressBlock = [...new Set(letters.map((l) => l.bureau))]
+  const uniqueBureaus = [...new Set(letters.map((l) => l.bureau))];
+  const addressBlock = uniqueBureaus
     .map((b) => bureauAddresses[b] ?? b)
     .join('\n\n');
 
-  return `╔══════════════════════════════════════════════════════════╗
-║          CREDORA AI — DISPUTE LETTER PACKAGE             ║
-║              AI-Powered Credit Intelligence              ║
-╚══════════════════════════════════════════════════════════╝
+  return `JECI CREDIT — DISPUTE LETTER PACKAGE
+AI-Powered Credit Intelligence
+Find it. Fight it. Fix it.
+================================================================
 
-Client:    ${clientName}
-Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-Letters:   ${letters.length}
+CLIENT:    ${clientName}
+GENERATED: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+LETTERS:   ${letters.length}
 
-INCLUDED LETTERS:
+INCLUDED:
 ${letterList}
 
-══════════════════════════════════════════════════════════
+================================================================
 MAILING INSTRUCTIONS
-══════════════════════════════════════════════════════════
+================================================================
 
-1. PRINT each letter on 8.5" x 11" white paper.
+1. PRINT each letter on standard 8.5" x 11" paper.
 
-2. SIGN where indicated — look for: [YOUR SIGNATURE]
+2. SIGN your name where indicated: [YOUR SIGNATURE]
 
-3. INCLUDE a copy of 2 forms of ID (driver's license +
-   utility bill or bank statement showing your address).
+3. INCLUDE copies of 2 forms of ID with each letter:
+   → Government-issued photo ID (driver's license, passport)
+   → Proof of address (utility bill, bank statement, <60 days)
 
-4. SEND via CERTIFIED MAIL with Return Receipt Requested.
-   • Keep your green return receipt card as legal proof.
-   • FCRA requires bureaus to respond within 30 days.
+4. SEND via CERTIFIED MAIL — Return Receipt Requested.
+   Keep the green card. It is legal proof of delivery.
 
-5. NOTE the certified mail tracking number on each letter.
+5. NOTE the tracking number on your copy of each letter.
 
-6. UPLOAD bureau responses to Credora AI for Round 2
-   analysis when you receive them (usually 3–5 weeks).
+6. UPLOAD bureau responses to JECI Credit for Round 2.
 
-══════════════════════════════════════════════════════════
+Bureaus must respond within 30 days per FCRA 15 USC 1681i.
+
+================================================================
 BUREAU MAILING ADDRESSES
-══════════════════════════════════════════════════════════
+================================================================
 
 ${addressBlock}
 
-══════════════════════════════════════════════════════════
-YOUR FCRA RIGHTS
-══════════════════════════════════════════════════════════
+================================================================
+YOUR FCRA RIGHTS (15 USC 1681)
+================================================================
 
-Under the Fair Credit Reporting Act (15 USC 1681):
-• Credit bureaus must investigate disputes within 30 days.
-• Unverifiable information must be deleted.
-• You may dispute inaccurate information at no cost.
-• You may add a 100-word consumer statement to your file.
+You have the right to:
+• Dispute inaccurate or unverifiable information at no cost
+• A bureau investigation completed within 30 days
+• Deletion of information that cannot be verified
+• Add a 100-word consumer statement to your credit file
+• Sue for $1,000 statutory damages per willful violation
 
-For violations of your rights, contact:
+Regulatory contacts:
 • CFPB: consumerfinance.gov/complaint | (855) 411-2372
-• FTC: ftc.gov/complaint | 1-877-FTC-HELP
+• FTC:  ftc.gov/complaint | 1-877-382-4357
 
-══════════════════════════════════════════════════════════
-Credora AI | Powered by 700 Credit Club
-Legal. Moral. Ethical & Factual Credit Services.
-© ${new Date().getFullYear()} JECI Group
-══════════════════════════════════════════════════════════`;
+================================================================
+© ${new Date().getFullYear()} JECI Group · JECI Credit
+AI-Powered Credit Intelligence
+Not legal advice — FCRA dispute assistance only.
+================================================================`;
 }

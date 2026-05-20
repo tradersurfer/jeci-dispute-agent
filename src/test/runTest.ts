@@ -160,7 +160,7 @@ const mockReport: CreditReport = {
 function runTests() {
   console.log('\n========================================');
   console.log('  JECI AI — Report Analyzer Test Suite');
-  console.log('  700 Credit Club Experts | JECI Group');
+  console.log('  JECI Group');
   console.log('========================================\n');
 
   // Test 1: Full analysis

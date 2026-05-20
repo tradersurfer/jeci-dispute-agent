@@ -125,7 +125,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[Credora/analyze]', message);
+    console.error('[JECI/analyze]', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

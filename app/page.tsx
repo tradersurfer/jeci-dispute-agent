@@ -5,62 +5,97 @@ import PricingCard from './components/PricingCard';
 
 const PLANS = [
   {
-    name: 'Credora Scan',
+    name: 'JECI SCAN',
     price: '$97',
     type: 'one-time',
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_SCAN ?? 'price_credora_scan',
-    description: 'One complete credit report analysis with dispute-ready letters.',
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_SCAN ?? 'price_jeci_scan',
+    description: 'Full 3-bureau scan with Round 1 dispute letters.',
     features: [
       'Full 3-bureau report analysis',
-      'AI-generated dispute letters',
+      'AI dispute letters (Round 1)',
       'Downloadable ZIP package',
       'FCRA/FDCPA legal citations',
-      '30-day mailing guide included',
+      'Certified mail guide included',
     ],
-    cta: 'Get My Letters — $97',
+    cta: 'GET MY LETTERS →',
     highlighted: false,
   },
   {
-    name: 'Credora Sweep',
+    name: 'JECI SWEEP',
     price: '$297',
     type: 'one-time',
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_SWEEP ?? 'price_credora_sweep',
-    description: 'Full 3-round dispute campaign managed start to finish.',
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_SWEEP ?? 'price_jeci_sweep',
+    description: 'Complete 3-round dispute campaign, start to finish.',
     features: [
       'Everything in Scan, plus:',
       '3-round dispute pipeline',
       'Bureau response analysis',
       'Round 2 & 3 letter generation',
       'Deletion outcome tracking',
-      'Priority support',
+      'Priority support queue',
     ],
-    cta: 'Start My Sweep — $297',
+    cta: 'START MY SWEEP →',
     highlighted: true,
   },
   {
-    name: 'Credora Repair',
+    name: 'JECI REPAIR',
     price: '$127',
     type: 'recurring',
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_REPAIR ?? 'price_credora_repair',
-    description: 'Ongoing monthly credit repair with continuous dispute management.',
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_REPAIR ?? 'price_jeci_repair',
+    description: 'Monthly managed repair with continuous dispute cycles.',
     features: [
       'Everything in Sweep, plus:',
       'Monthly score tracking',
       'Continuous dispute management',
       'Score improvement roadmap',
-      'Dedicated repair specialist',
-      'Cancel anytime',
+      'Dedicated repair agent',
+      'Cancel any time',
     ],
-    cta: 'Start Repair — $127/mo',
+    cta: 'START REPAIR →',
+    highlighted: false,
+  },
+  {
+    name: 'JECI BOOST',
+    price: '$497',
+    type: 'one-time',
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_BOOST ?? 'price_jeci_boost',
+    description: 'Full-service rapid credit rebuild — scored in 60 days.',
+    features: [
+      'Everything in Sweep, plus:',
+      'Rapid tradeline strategy',
+      'Secured card optimization',
+      '60-day score target plan',
+      'Manual creditor negotiation',
+      'White-glove concierge access',
+    ],
+    cta: 'GET BOOST ACCESS →',
     highlighted: false,
   },
 ];
 
 const STATS = [
-  { value: '18+', label: 'FCRA/FDCPA Rules' },
-  { value: '97%', label: 'Avg. Deletion Rate' },
-  { value: '3', label: 'Bureau Coverage' },
-  { value: '<10 min', label: 'Analysis Time' },
+  { value: '18+', label: 'FCRA/FDCPA_RULES' },
+  { value: '97%', label: 'AVG_DELETION_RATE' },
+  { value: '3',   label: 'BUREAUS_COVERED' },
+  { value: '<10m', label: 'ANALYSIS_TIME' },
+];
+
+const STEPS = [
+  {
+    id: '01_SCAN',
+    title: 'Upload & Scan',
+    desc: 'Upload your PDF credit report. JECI AI extracts every account, inquiry, and public record.',
+  },
+  {
+    id: '02_DISPUTE',
+    title: 'Dispute',
+    desc: '18+ FCRA/FDCPA rules run automatically. Bureau-specific letters generated with legal citations.',
+  },
+  {
+    id: '03_FIX',
+    title: 'Fix',
+    desc: 'Mail your certified letters. Track responses. JECI AI generates the next round automatically.',
+  },
 ];
 
 export default function LandingPage() {
@@ -78,117 +113,100 @@ export default function LandingPage() {
       const { url } = await res.json();
       window.location.href = url;
     } catch {
-      alert('Something went wrong starting checkout. Please try again.');
+      alert('Checkout error. Please try again.');
       setLoadingPlan(null);
     }
   };
 
   return (
-    <main className="min-h-screen bg-credora-bg">
+    <main className="min-h-screen bg-jeci-bg">
+
       {/* Nav */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-6 md:px-12 py-5 border-b border-credora-border bg-credora-bg/90 backdrop-blur-md">
+      <nav className="sticky top-0 z-50 flex items-center justify-between px-6 md:px-12 py-4 border-b border-jeci-border bg-jeci-bg/95 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-credora-gold to-credora-gold/60" />
-          <span className="font-display text-xl font-bold text-credora-text">Credora AI</span>
+          <div className="w-2 h-6 bg-jeci-gold" />
+          <span className="font-display text-lg font-bold text-jeci-text">JECI Credit</span>
         </div>
-        <div className="hidden md:flex items-center gap-8 text-credora-muted text-sm">
-          <a href="#how-it-works" className="hover:text-credora-text transition-colors">How It Works</a>
-          <a href="#pricing" className="hover:text-credora-text transition-colors">Pricing</a>
+        <div className="hidden md:flex items-center gap-8 font-mono text-xs text-jeci-muted uppercase tracking-widest">
+          <a href="#how-it-works" className="hover:text-jeci-text transition-colors">Process</a>
+          <a href="#pricing" className="hover:text-jeci-text transition-colors">Plans</a>
         </div>
-        <a
-          href="#pricing"
-          className="btn-gold text-sm py-2 px-5"
-        >
-          Get Started
+        <a href="#pricing" className="btn-gold text-xs py-2 px-4">
+          GET STARTED →
         </a>
       </nav>
 
       {/* Hero */}
-      <section className="max-w-5xl mx-auto px-6 md:px-12 pt-24 pb-20 text-center animate-fade-in">
-        <div className="inline-flex items-center gap-2.5 bg-credora-gold/10 border border-credora-gold/25 rounded-full px-4 py-2 mb-10">
-          <span className="w-2 h-2 rounded-full bg-credora-gold animate-pulse-gold" />
-          <span className="text-credora-gold text-sm font-medium tracking-wide">
-            Powered by Claude AI · FCRA Compliant
-          </span>
+      <section className="max-w-4xl mx-auto px-6 md:px-12 pt-24 pb-20 animate-fade-in">
+        <div className="font-mono text-xs text-jeci-muted mb-8 flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-jeci-success animate-pulse-gold" />
+          JECI_AI_ENGINE · ACTIVE · FCRA_COMPLIANT
         </div>
 
-        <h1 className="font-display text-5xl md:text-7xl font-bold text-credora-text leading-[1.1] mb-6">
+        <h1 className="font-display text-5xl md:text-6xl font-bold text-jeci-text leading-[1.1] mb-6">
           Your Credit Report<br />
-          <span className="text-credora-gold">Has Errors.</span><br />
-          AI Finds Them in Minutes.
+          Has Errors.<br />
+          <span className="text-jeci-gold">JECI AI Finds Them</span><br />
+          in 48 Hours.
         </h1>
 
-        <p className="text-credora-muted text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-          Upload your credit report. Credora AI scans every line for FCRA violations,
-          generates bureau-specific dispute letters, and delivers a ready-to-mail package
-          — automatically.
+        <p className="font-mono text-jeci-gold text-lg mb-4">
+          Find it. Fight it. Fix it.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-          <a href="#pricing" className="btn-gold text-base px-8 py-4 rounded-xl">
-            Start Disputing Today
+        <p className="text-jeci-muted max-w-xl mb-10 leading-relaxed">
+          Upload your PDF credit report. JECI AI scans every account, inquiry, and public record
+          against 18+ FCRA rules — then generates bureau-specific dispute letters, ready to mail.
+        </p>
+
+        <div className="flex flex-wrap gap-4 mb-16">
+          <a href="#pricing" className="btn-gold py-3.5 px-8">
+            START MY SCAN →
           </a>
-          <a href="#how-it-works" className="btn-outline text-base px-8 py-4 rounded-xl">
-            See How It Works
+          <a href="#how-it-works" className="btn-outline py-3.5 px-8">
+            SEE HOW IT WORKS
           </a>
         </div>
 
         {/* Stats strip */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-2xl mx-auto">
-          {STATS.map((s) => (
-            <div key={s.label} className="text-center">
-              <div className="font-display text-3xl font-bold text-credora-gold mb-1">{s.value}</div>
-              <div className="text-credora-muted text-xs uppercase tracking-wider">{s.label}</div>
-            </div>
-          ))}
+        <div className="border border-jeci-border rounded p-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {STATS.map((s) => (
+              <div key={s.label}>
+                <div className="font-mono text-2xl font-bold text-jeci-gold mb-1">{s.value}</div>
+                <div className="font-mono text-jeci-muted text-xs">{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* How It Works */}
-      <section id="how-it-works" className="max-w-4xl mx-auto px-6 md:px-12 py-20">
-        <p className="section-label text-center mb-4">How It Works</p>
-        <h2 className="font-display text-3xl md:text-4xl text-center text-credora-text mb-14">
-          From Report to Ready-to-Mail in Minutes
-        </h2>
-        <div className="grid md:grid-cols-3 gap-8">
-          {[
-            {
-              step: '01',
-              title: 'Upload Your Report',
-              desc: 'Upload your PDF credit report from any bureau or service — Experian, Credit Karma, myFICO, and more.',
-            },
-            {
-              step: '02',
-              title: 'AI Analyzes Every Line',
-              desc: 'Credora AI scans 18+ FCRA/FDCPA rules: expired accounts, duplicates, medical debt, inquiry overload, status errors.',
-            },
-            {
-              step: '03',
-              title: 'Download & Mail',
-              desc: 'Receive a ZIP of professional, bureau-specific dispute letters with legal citations. Print, sign, mail certified.',
-            },
-          ].map((s) => (
-            <div key={s.step} className="card-elevated relative">
-              <div className="font-display text-5xl font-bold text-credora-gold/20 mb-4 leading-none">
-                {s.step}
-              </div>
-              <h3 className="text-credora-text font-semibold text-lg mb-3">{s.title}</h3>
-              <p className="text-credora-muted text-sm leading-relaxed">{s.desc}</p>
+      <section id="how-it-works" className="max-w-4xl mx-auto px-6 md:px-12 py-16">
+        <p className="font-mono text-xs text-jeci-muted uppercase tracking-widest mb-8">
+          // HOW_IT_WORKS
+        </p>
+        <div className="grid md:grid-cols-3 gap-4">
+          {STEPS.map((step) => (
+            <div key={step.id} className="card border-jeci-border">
+              <p className="font-mono text-jeci-gold text-xs mb-3">{step.id}</p>
+              <h3 className="text-jeci-text font-semibold mb-3">{step.title}</h3>
+              <p className="text-jeci-muted text-sm leading-relaxed">{step.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="max-w-6xl mx-auto px-6 md:px-12 py-20">
-        <p className="section-label text-center mb-4">Pricing</p>
-        <h2 className="font-display text-3xl md:text-4xl text-center text-credora-text mb-4">
-          Choose Your Plan
-        </h2>
-        <p className="text-credora-muted text-center mb-14 max-w-lg mx-auto">
-          Start with a single scan or run a complete multi-round repair campaign.
+      <section id="pricing" className="max-w-6xl mx-auto px-6 md:px-12 py-16">
+        <p className="font-mono text-xs text-jeci-muted uppercase tracking-widest mb-4">
+          // SELECT_PLAN
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+        <h2 className="font-display text-3xl text-jeci-text mb-2">Choose Your Level</h2>
+        <p className="text-jeci-muted mb-10 text-sm">
+          One scan or a full repair campaign — pick what you need.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {PLANS.map((plan) => (
             <PricingCard
               key={plan.name}
@@ -198,23 +216,23 @@ export default function LandingPage() {
             />
           ))}
         </div>
-        <p className="text-center text-credora-muted/60 text-xs mt-8">
-          Secure checkout via Stripe · 30-day money-back guarantee · No hidden fees
+        <p className="font-mono text-jeci-muted/50 text-xs mt-6 text-center">
+          Secure checkout via Stripe · All sales final · Not legal advice
         </p>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-credora-border py-10 px-6">
+      <footer className="border-t border-jeci-border py-8 px-6 md:px-12">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full bg-credora-gold/80" />
-            <span className="font-display text-lg font-bold text-credora-text">Credora AI</span>
+            <div className="w-1.5 h-5 bg-jeci-gold/80" />
+            <span className="font-display font-bold text-jeci-text">JECI Credit</span>
           </div>
-          <p className="text-credora-muted text-xs text-center">
-            © {new Date().getFullYear()} Credora AI · Powered by 700 Credit Club · Legal. Moral. Ethical &amp; Factual Credit Services.
+          <p className="font-mono text-jeci-muted text-xs">
+            Find it. Fight it. Fix it.
           </p>
-          <p className="text-credora-muted/50 text-xs">
-            Not legal advice · FCRA dispute assistance only
+          <p className="font-mono text-jeci-muted/50 text-xs">
+            © {new Date().getFullYear()} JECI Group · FCRA dispute assistance · Not legal advice
           </p>
         </div>
       </footer>

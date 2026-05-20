@@ -1,39 +1,52 @@
-# JECI Dispute Agent
-### Powered by 700 Credit Club Experts | JECI Group
-**Legal. Moral. Ethical & Factual Credit Services.**
+# JECI Credit
+### AI-Powered Credit Intelligence — Find it. Fight it. Fix it.
+**Powered by JECI AI · JECI Group**
 
 ---
 
-An autonomous AI-driven credit dispute management system built on Node.js/TypeScript, Supabase, and Claude AI.
+An autonomous AI-driven credit dispute system built on Next.js, Supabase, and Claude AI.
 
 ## What It Does
 
 - **Analyzes** credit reports for every disputable item under FCRA (15 USC 1681) and FDCPA
-- **Generates** legally precise dispute letters via Claude AI (Round 1, 2, and 3)
+- **Generates** legally precise dispute letters via JECI AI (Round 1, 2, and 3)
 - **Manages** the full 3-round dispute pipeline automatically via Supabase action queue
 - **Integrates** with Credit Repair Cloud via API, webhooks, and optional CRC sync
 - **Notifies** your team in Slack at every milestone
 - **Escalates** complex cases for human review or legal referral
 
+## Plans
+
+| Plan | Price | Description |
+|---|---|---|
+| JECI Scan | $97 one-time | Full PDF credit report analysis + dispute letter package |
+| JECI Sweep | $297 one-time | Scan + 3-round bureau submissions + tracking |
+| JECI Repair | $127/month | Ongoing dispute management + monthly reporting |
+| JECI Boost | $497 one-time | Full repair + score optimization strategy |
+
 ## Architecture
 
 ```
-CRC (optional sync) → Supabase (source of truth) → JECI Agent → Dispute Letters / Actions
+PDF Upload → JECI AI Analysis → Letter Generation → ZIP Package → Supabase Storage
+                                                                  ↓
+CRC (optional sync) → Supabase (source of truth) → JECI Agent → Dispute Pipeline
 ```
 
 **Stack**
-- Node.js/TypeScript + Express (existing webhook server)
-- Next.js 14 App Router API routes (new Supabase-backed endpoints)
-- Supabase (Postgres database, real-time, storage)
-- Anthropic Claude (letter generation, response parsing, strategy)
-- Credit Repair Cloud (optional CRM sync via webhook)
+- Next.js 14 App Router (frontend + API routes)
+- Tailwind CSS v4 (CSS-based `@theme {}` configuration)
+- Supabase (Postgres, Storage, SSR auth)
+- Anthropic Claude `claude-sonnet-4-20250514` (letter generation, analysis)
+- Stripe (Checkout Sessions + Subscriptions + Webhooks)
+- Netlify (serverless functions, Next.js plugin)
+- Credit Repair Cloud (optional CRM sync)
 - Slack (team notifications)
 
 ## Quick Start
 
 1. Clone the repo
 2. Copy `.env.example` to `.env.local` and fill in all values
-3. Run the schema in your Supabase SQL editor: `supabase/schema.sql`
+3. Run the schema in your Supabase SQL editor: `supabase/schema.sql` then `supabase/jeci-tables.sql`
 4. `npm install`
 5. `npm run dev`
 
@@ -41,60 +54,46 @@ CRC (optional sync) → Supabase (source of truth) → JECI Agent → Dispute Le
 
 | Variable | Description |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | Supabase anon/publishable key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-only, never expose) |
-| `ANTHROPIC_API_KEY` | Anthropic API key for Claude |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server-only, never expose) |
+| `ANTHROPIC_API_KEY` | Anthropic API key for JECI AI |
+| `STRIPE_SECRET_KEY` | Stripe secret key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |
+| `NEXT_PUBLIC_STRIPE_PRICE_SCAN` | Stripe Price ID for JECI Scan |
+| `NEXT_PUBLIC_STRIPE_PRICE_SWEEP` | Stripe Price ID for JECI Sweep |
+| `NEXT_PUBLIC_STRIPE_PRICE_REPAIR` | Stripe Price ID for JECI Repair |
+| `NEXT_PUBLIC_STRIPE_PRICE_BOOST` | Stripe Price ID for JECI Boost |
+| `NEXT_PUBLIC_BASE_URL` | Deployed site URL |
 | `AGENT_WEBHOOK_SECRET` | Secret token for `/api/agent/run` endpoint |
 | `CRC_API_KEY` | Credit Repair Cloud API key (optional) |
 | `SLACK_WEBHOOK_URL` | Slack incoming webhook URL (optional) |
-
-## Agent Trigger
-
-```
-POST /api/agent/run?secret=YOUR_WEBHOOK_SECRET
-```
-
-Set this as a cron job (Vercel Cron, GitHub Actions, or Supabase Edge Function) to run every 15–30 minutes.
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
+| POST | `/api/analyze` | Upload PDF, run JECI AI analysis, generate letters, save ZIP |
+| GET | `/api/analyze/status?id=` | Poll analysis completion status |
+| GET | `/api/download?id=` | Download dispute letter ZIP package |
+| POST | `/api/agent/run` | Trigger agent loop (cron endpoint) |
 | GET | `/api/clients` | List all clients |
 | POST | `/api/clients` | Create a client |
 | GET | `/api/disputes?client_id=` | List disputes |
 | POST | `/api/disputes` | Create dispute + queue letter generation |
 | POST | `/api/crc/sync` | Accept CRC webhook or manual sync |
-| POST | `/api/agent/run` | Trigger agent loop |
 
-## CRC Integration
+## Netlify Functions
 
-Send a POST to `/api/crc/sync` with:
-
-```json
-{
-  "type": "client",
-  "data": { "id": "CRC_ID", "first_name": "John", "last_name": "Doe", "email": "..." }
-}
-```
-
-JECI stores the data in Supabase and operates independently from CRC from that point forward.
-
-## CRC Webhook Setup
-
-In Credit Repair Cloud → Settings → Webhooks, add:
-
-| Event | URL |
+| Function | Description |
 |---|---|
-| Client Enrolled | `https://your-railway-url.up.railway.app/webhook/new-client` |
-| Report Uploaded | `https://your-railway-url.up.railway.app/webhook/report-uploaded` |
-| Bureau Response | `https://your-railway-url.up.railway.app/webhook/bureau-response` |
-| Deletion Confirmed | `https://your-railway-url.up.railway.app/webhook/deletion-confirmed` |
+| `/.netlify/functions/stripe-checkout` | Create Stripe Checkout Session |
+| `/.netlify/functions/stripe-webhook` | Handle Stripe payment events |
 
 ## Report Analyzer Rules
 
-The analyzer detects 18+ dispute reasons:
+The JECI AI engine detects 18+ dispute reasons:
 
 | Rule | Law | Deletion Rate |
 |---|---|---|
@@ -113,70 +112,56 @@ The analyzer detects 18+ dispute reasons:
 
 ```
 jeci-dispute-agent/
-├── src/                         ← Existing Express webhook server
-│   ├── agents/disputeAgent.ts   ← Original dispute pipeline orchestrator
+├── app/                         ← Next.js App Router (frontend + API)
+│   ├── page.tsx                 ← Landing page with pricing
+│   ├── dashboard/page.tsx       ← Intake form + processing
+│   ├── results/page.tsx         ← Analysis results + letter previews
+│   ├── api/
+│   │   ├── analyze/route.ts     ← PDF analysis pipeline
+│   │   ├── analyze/status/      ← Analysis status polling
+│   │   ├── download/route.ts    ← ZIP download
+│   │   └── agent/run/route.ts   ← Agent loop trigger
+│   ├── components/              ← Terminal-aesthetic UI components
+│   └── globals.css              ← Tailwind v4 + JECI design tokens
+├── src/                         ← Express webhook server (legacy)
+│   ├── agents/disputeAgent.ts   ← Dispute pipeline orchestrator
 │   ├── tools/
-│   │   ├── reportAnalyzer.ts    ← FCRA/FDCPA rules engine (the brain)
+│   │   ├── reportAnalyzer.ts    ← FCRA/FDCPA rules engine
 │   │   ├── letterGenerator.ts   ← Claude API letter writer
 │   │   ├── crcClient.ts         ← Credit Repair Cloud API
 │   │   └── slackNotifier.ts     ← Slack notifications
 │   ├── webhooks/server.ts       ← Express webhook receiver
-│   ├── scheduler/               ← Poll scheduler
-│   ├── types/index.ts           ← All TypeScript types
-│   └── test/runTest.ts          ← Test suite with mock data
-├── lib/agent/                   ← NEW: Supabase-backed agent core
-│   ├── jeci.ts                  ← Main JECI agent loop
-│   ├── letterGenerator.ts       ← Supabase-integrated letter generator
-│   ├── responseParser.ts        ← Bureau response parser
-│   └── strategyEngine.ts        ← Next-action strategy engine
-├── app/api/                     ← NEW: Next.js-style API routes
-│   ├── agent/run/route.ts       ← Agent loop trigger (cron endpoint)
-│   ├── clients/route.ts         ← Client CRUD
-│   ├── disputes/route.ts        ← Dispute management
-│   └── crc/sync/route.ts        ← CRC sync webhook receiver
-├── utils/supabase/              ← NEW: Supabase client helpers
-│   ├── client.ts                ← Browser client
-│   ├── server.ts                ← Server client (SSR)
-│   ├── middleware.ts            ← Session middleware
-│   └── admin.ts                 ← Service role admin client
+│   └── types/index.ts           ← Core TypeScript types
+├── lib/
+│   ├── agent/                   ← Supabase-backed agent core
+│   └── zip/letterPackager.ts    ← ZIP dispute package builder
+├── netlify/functions/           ← Netlify serverless functions
+│   ├── stripe-checkout.ts
+│   └── stripe-webhook.ts
+├── utils/supabase/              ← Supabase client helpers
 ├── supabase/
-│   └── schema.sql               ← Full Supabase database schema
-├── middleware.ts                ← Next.js session middleware
+│   ├── schema.sql               ← Core database schema
+│   └── jeci-tables.sql          ← Analyses + paid_sessions tables
 └── .env.example                 ← Environment variable template
 ```
 
-## Database Schema
+## Database Setup
 
-Run `supabase/schema.sql` in your Supabase SQL editor:
-- `clients` — Client identity, address, CRC link
-- `score_snapshots` — Credit score history per bureau
-- `credit_accounts` — Tradelines and account details
-- `negative_items` — Items flagged for dispute
-- `disputes` — Full dispute lifecycle with letters
-- `dispute_templates` — Letter template library
-- `bureau_responses` — Parsed bureau responses
-- `hard_inquiries` — Inquiry tracking
-- `action_queue` — JECI agent task queue
-- `crc_sync_log` — CRC sync audit log
+Run in order in your Supabase SQL editor:
+
+1. `supabase/schema.sql` — clients, disputes, action_queue, etc.
+2. `supabase/jeci-tables.sql` — analyses, paid_sessions, storage bucket
 
 ## Manual Steps After Setup
 
-1. **Run `supabase/schema.sql`** in your Supabase dashboard SQL editor
-2. **Add your Supabase service role key** to `.env.local`
-3. **Add your Anthropic API key** to `.env.local`
-4. **Set up a cron job** to POST to `/api/agent/run?secret=YOUR_SECRET` every 15–30 minutes
-5. **Change `AGENT_WEBHOOK_SECRET`** to something strong before deploying to production
-
-## Cost Savings
-
-| | Old Model | JECI AI |
-|---|---|---|
-| Per-client dispute cost | $250 | ~$1.50 (Claude API) |
-| Availability | Business hours | 24/7 |
-| 50 clients/month | $12,500 | $75 |
-| **Annual savings** | — | **~$148,000** |
+1. Run both SQL files in Supabase dashboard
+2. Fill in `.env.local` with all API keys
+3. Create 4 products in Stripe Dashboard and copy Price IDs to `.env.local`
+4. Deploy to Netlify — set all env vars in Netlify dashboard
+5. Register `/.netlify/functions/stripe-webhook` in Stripe Dashboard → Webhooks
+6. Set up a cron job to POST to `/api/agent/run?secret=YOUR_SECRET` every 15–30 minutes
 
 ---
 
-© 2026 JECI Group — 700 Credit Club Experts Division
+© 2026 JECI Group · JECI Credit — AI-Powered Credit Intelligence
 Internal Use Only | Confidential

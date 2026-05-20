@@ -32,12 +32,12 @@ export default function UploadZone({ onFile, file }: UploadZoneProps) {
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
-      className={`cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition-all duration-200 ${
+      className={`cursor-pointer rounded border-2 border-dashed p-10 text-center transition-all duration-150 ${
         dragging
-          ? 'border-credora-gold bg-credora-gold/5 scale-[1.01]'
+          ? 'border-jeci-gold bg-jeci-gold/5'
           : file
-          ? 'border-green-500/60 bg-green-500/5'
-          : 'border-credora-border hover:border-credora-gold/50 hover:bg-credora-gold/5'
+          ? 'border-jeci-success/60 bg-jeci-success/5'
+          : 'border-jeci-border hover:border-jeci-gold/40 hover:bg-jeci-gold/5'
       }`}
     >
       <input
@@ -49,26 +49,26 @@ export default function UploadZone({ onFile, file }: UploadZoneProps) {
       />
 
       {file ? (
-        <div className="space-y-2">
-          <div className="text-3xl">📄</div>
-          <p className="text-credora-text font-medium">{file.name}</p>
-          <p className="text-credora-muted text-sm">
-            {(file.size / 1024 / 1024).toFixed(2)} MB · Click to replace
+        <div className="space-y-2 font-mono">
+          <p className="text-jeci-success text-sm">[✓] FILE LOADED</p>
+          <p className="text-jeci-text text-sm">{file.name}</p>
+          <p className="text-jeci-muted text-xs">
+            {(file.size / 1024 / 1024).toFixed(2)} MB · click to replace
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="text-4xl opacity-60">📎</div>
-          <div>
-            <p className="text-credora-text font-medium mb-1">
-              Drop your credit report here
-            </p>
-            <p className="text-credora-muted text-sm">
-              or click to browse · PDF files only · max 10MB
-            </p>
-          </div>
-          <p className="text-credora-muted/60 text-xs">
-            Works with Experian, Equifax, TransUnion, Credit Karma, myFICO reports
+          <p className="font-mono text-jeci-muted text-xs uppercase tracking-widest mb-4">
+            // DROP_PDF_REPORT
+          </p>
+          <p className="text-jeci-text text-sm">
+            Drag your credit report here
+          </p>
+          <p className="text-jeci-muted text-xs">
+            or click to browse · PDF files only · max 10 MB
+          </p>
+          <p className="text-jeci-muted/50 font-mono text-xs mt-4">
+            compatible: experian · equifax · transunion · credit karma · myfico
           </p>
         </div>
       )}

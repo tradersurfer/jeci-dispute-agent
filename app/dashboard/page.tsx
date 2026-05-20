@@ -12,6 +12,18 @@ interface FormState {
   zip: string;
 }
 
+const PROGRESS_STEPS = [
+  'Uploading report...',
+  'Extracting credit data...',
+  'Running FCRA rules engine...',
+  'Checking 7-year limits...',
+  'Detecting duplicates...',
+  'Analyzing medical debt...',
+  'Reviewing inquiries...',
+  'Generating dispute letters...',
+  'Building download package...',
+];
+
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -19,42 +31,31 @@ export default function DashboardPage() {
 
   const [pdf, setPdf] = useState<File | null>(null);
   const [form, setForm] = useState<FormState>({
-    clientName: '',
-    address: '',
-    city: '',
-    state: '',
-    zip: '',
+    clientName: '', address: '', city: '', state: '', zip: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [progressStep, setProgressStep] = useState(0);
   const [error, setError] = useState('');
-  const [progressLabel, setProgressLabel] = useState('Uploading your report…');
 
-  // Cycle through progress messages while analyzing
   useEffect(() => {
     if (!submitting) return;
-    const steps = [
-      'Uploading your report…',
-      'Extracting credit data with AI…',
-      'Running FCRA/FDCPA rules engine…',
-      'Generating dispute letters…',
-      'Building your letter package…',
-    ];
     let i = 0;
-    const interval = setInterval(() => {
-      i = (i + 1) % steps.length;
-      setProgressLabel(steps[i]);
-    }, 3000);
-    return () => clearInterval(interval);
+    const t = setInterval(() => {
+      i = Math.min(i + 1, PROGRESS_STEPS.length - 1);
+      setProgressStep(i);
+    }, 3500);
+    return () => clearInterval(t);
   }, [submitting]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!pdf) { setError('Please upload your credit report PDF.'); return; }
-      if (!form.clientName.trim()) { setError('Please enter your name.'); return; }
+      if (!pdf) { setError('No PDF uploaded.'); return; }
+      if (!form.clientName.trim()) { setError('Full name is required.'); return; }
 
       setError('');
       setSubmitting(true);
+      setProgressStep(0);
 
       const data = new FormData();
       data.append('pdf', pdf);
@@ -78,114 +79,133 @@ export default function DashboardPage() {
     [pdf, form, sessionId, router]
   );
 
-  const field = (label: string, key: keyof FormState, placeholder: string, half = false) => (
-    <div className={half ? 'col-span-1' : 'col-span-2'}>
-      <label className="block text-credora-muted text-sm mb-2">{label}</label>
-      <input
-        type="text"
-        placeholder={placeholder}
-        value={form[key]}
-        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-        disabled={submitting}
-        className="w-full bg-credora-bg border border-credora-border rounded-lg px-4 py-3 text-credora-text placeholder-credora-muted/50 focus:outline-none focus:border-credora-gold/60 transition-colors disabled:opacity-50"
-      />
-    </div>
-  );
+  const pct = Math.round(((progressStep + 1) / PROGRESS_STEPS.length) * 100);
+  const barFilled = Math.floor(((progressStep + 1) / PROGRESS_STEPS.length) * 32);
+  const barEmpty  = 32 - barFilled;
 
   return (
-    <div className="min-h-screen bg-credora-bg">
+    <div className="min-h-screen bg-jeci-bg">
       {/* Nav */}
-      <nav className="flex items-center justify-between px-6 md:px-12 py-5 border-b border-credora-border">
+      <nav className="flex items-center justify-between px-6 md:px-12 py-4 border-b border-jeci-border">
         <a href="/" className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-full bg-credora-gold" />
-          <span className="font-display text-lg font-bold text-credora-text">Credora AI</span>
+          <div className="w-1.5 h-5 bg-jeci-gold" />
+          <span className="font-display font-bold text-jeci-text">JECI Credit</span>
         </a>
-        <span className="text-credora-muted text-sm">Credit Report Analysis</span>
+        <span className="font-mono text-xs text-jeci-muted">UPLOAD_DASHBOARD</span>
       </nav>
 
       <div className="max-w-2xl mx-auto px-6 py-16">
         {submitting ? (
-          /* Processing overlay */
-          <div className="text-center space-y-8 animate-fade-in">
-            <div className="relative w-20 h-20 mx-auto">
-              <div className="absolute inset-0 rounded-full border-4 border-credora-gold/20" />
-              <div className="absolute inset-0 rounded-full border-4 border-credora-gold border-t-transparent animate-spin" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-10 h-10 rounded-full bg-credora-gold/20 flex items-center justify-center">
-                  <div className="w-5 h-5 rounded-full bg-credora-gold/60 animate-pulse" />
-                </div>
-              </div>
-            </div>
+          /* ── Processing State ── */
+          <div className="space-y-8 animate-fade-in">
             <div>
-              <h2 className="font-display text-2xl font-bold text-credora-text mb-3">
-                Credora AI is analyzing your report
+              <p className="font-mono text-xs text-jeci-muted mb-2">
+                $ jeci-scan --analyze {pdf?.name ?? 'report.pdf'} --round 1
+              </p>
+              <div className="border-t border-jeci-border/60 mb-6" />
+              <h2 className="font-display text-2xl font-bold text-jeci-text mb-2">
+                JECI AI is analyzing your report...
               </h2>
-              <p className="text-credora-gold animate-pulse-gold text-sm">{progressLabel}</p>
+              <p className="text-jeci-muted text-sm">Do not close this tab.</p>
             </div>
-            <div className="space-y-2 max-w-xs mx-auto text-left">
-              {[
-                'Scanning 18+ FCRA/FDCPA rules',
-                'Checking 7-year reporting limits',
-                'Detecting duplicate accounts',
-                'Identifying medical debt violations',
-                'Generating bureau-specific letters',
-              ].map((step) => (
-                <div key={step} className="flex items-center gap-3 text-credora-muted text-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-credora-gold/60 animate-pulse-gold flex-shrink-0" />
-                  {step}
-                </div>
-              ))}
+
+            {/* Terminal log */}
+            <div className="card font-mono text-sm space-y-2">
+              {PROGRESS_STEPS.map((step, i) => {
+                const done   = i < progressStep;
+                const active = i === progressStep;
+                return (
+                  <div
+                    key={step}
+                    className={`flex items-center gap-3 text-sm transition-opacity ${
+                      done ? 'opacity-100' : active ? 'opacity-100' : 'opacity-20'
+                    }`}
+                  >
+                    <span className={`w-14 text-xs flex-shrink-0 ${done ? 'text-jeci-success' : active ? 'text-jeci-gold' : 'text-jeci-border'}`}>
+                      {done ? '[✓]' : active ? '[...]' : '[   ]'}
+                    </span>
+                    <span className={done ? 'text-jeci-muted' : active ? 'text-jeci-text' : 'text-jeci-muted/30'}>
+                      {step}
+                    </span>
+                    {active && <span className="text-jeci-gold animate-blink">▋</span>}
+                  </div>
+                );
+              })}
             </div>
-            <p className="text-credora-muted/60 text-xs">This usually takes 30–90 seconds</p>
-          </div>
-        ) : (
-          /* Upload form */
-          <div className="animate-slide-up">
-            <div className="mb-10">
-              <p className="section-label mb-3">Step 1 of 1</p>
-              <h1 className="font-display text-4xl font-bold text-credora-text mb-3">
-                Upload Your Credit Report
-              </h1>
-              <p className="text-credora-muted">
-                We'll analyze it for FCRA violations and generate dispute letters for all 3 bureaus.
+
+            {/* Progress bar */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between font-mono text-xs text-jeci-muted">
+                <span>ANALYZING...</span>
+                <span className="text-jeci-gold">{pct}%</span>
+              </div>
+              <p className="font-mono text-jeci-gold text-sm tracking-tight">
+                {'█'.repeat(barFilled)}{'░'.repeat(barEmpty)}
               </p>
             </div>
+          </div>
+        ) : (
+          /* ── Upload Form ── */
+          <div className="animate-slide-up">
+            <p className="font-mono text-xs text-jeci-muted mb-6">
+              // REPORT_INTAKE
+            </p>
+            <h1 className="font-display text-3xl font-bold text-jeci-text mb-2">
+              Upload Your Credit Report
+            </h1>
+            <p className="text-jeci-muted text-sm mb-10">
+              JECI AI will scan for FCRA violations and generate dispute letters for all 3 bureaus.
+            </p>
 
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Personal Info */}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Personal info */}
               <div className="card space-y-4">
-                <p className="text-credora-text font-medium">Your Information</p>
+                <p className="terminal-label">// CLIENT_INFO</p>
                 <div className="grid grid-cols-2 gap-4">
-                  {field('Full Name', 'clientName', 'Jane Smith')}
-                  {field('Street Address', 'address', '123 Main St')}
-                  {field('City', 'city', 'Houston', true)}
-                  {field('State', 'state', 'TX', true)}
-                  {field('ZIP Code', 'zip', '77001', true)}
+                  {[
+                    { key: 'clientName', label: 'FULL_NAME', placeholder: 'Jane Smith', span: 2 },
+                    { key: 'address',    label: 'ADDRESS',   placeholder: '123 Main St', span: 2 },
+                    { key: 'city',       label: 'CITY',      placeholder: 'Houston', span: 1 },
+                    { key: 'state',      label: 'STATE',     placeholder: 'TX', span: 1 },
+                    { key: 'zip',        label: 'ZIP',       placeholder: '77001', span: 1 },
+                  ].map(({ key, label, placeholder, span }) => (
+                    <div key={key} className={span === 2 ? 'col-span-2' : 'col-span-1'}>
+                      <label className="font-mono text-xs text-jeci-muted block mb-1.5">{label}</label>
+                      <input
+                        type="text"
+                        placeholder={placeholder}
+                        value={form[key as keyof FormState]}
+                        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                        disabled={submitting}
+                        className="w-full bg-jeci-bg border border-jeci-border rounded px-3 py-2.5 font-mono text-sm text-jeci-text placeholder-jeci-muted/40 focus:outline-none focus:border-jeci-gold/60 transition-colors disabled:opacity-50"
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* PDF Upload */}
-              <div className="space-y-3">
-                <p className="text-credora-text font-medium">Credit Report PDF</p>
+              {/* PDF upload */}
+              <div className="space-y-2">
+                <p className="terminal-label">// REPORT_PDF</p>
                 <UploadZone file={pdf} onFile={setPdf} />
               </div>
 
               {error && (
-                <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
-                  {error}
+                <p className="font-mono text-jeci-red text-sm border border-jeci-red/20 bg-jeci-red/5 rounded px-4 py-3">
+                  [ERROR] {error}
                 </p>
               )}
 
               <button
                 type="submit"
                 disabled={submitting || !pdf || !form.clientName}
-                className="btn-gold w-full py-4 text-base rounded-xl"
+                className="btn-gold w-full py-4"
               >
-                Analyze My Credit Report →
+                RUN JECI AI SCAN →
               </button>
 
-              <p className="text-credora-muted/50 text-xs text-center">
-                Your report is processed securely and never shared. Analysis typically takes 30–90 seconds.
+              <p className="font-mono text-jeci-muted/50 text-xs text-center">
+                Report processed securely · Never shared · ~30–90 seconds
               </p>
             </form>
           </div>

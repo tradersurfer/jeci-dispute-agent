@@ -1,6 +1,6 @@
 // ============================================================
 // JECI AI — Dispute Agent Orchestrator
-// 700 Credit Club Experts | JECI Group
+// JECI Group
 // Pure TypeScript — no external agent framework needed
 // ============================================================
 

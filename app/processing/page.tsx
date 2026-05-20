@@ -2,19 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import ProgressRing from '../components/ProgressRing';
+import TerminalProgress from '../components/ProgressRing';
 
 const STEPS = [
-  'Reading your credit report…',
-  'Identifying negative items…',
-  'Checking FCRA 7-year limits…',
-  'Detecting duplicate accounts…',
-  'Analyzing medical debt rules…',
-  'Reviewing hard inquiries…',
-  'Generating Experian letter…',
-  'Generating Equifax letter…',
-  'Generating TransUnion letter…',
-  'Building download package…',
+  'PDF loaded and verified',
+  'Extracting personal information',
+  'Parsing credit accounts',
+  'Running 7-year FCRA limit checks',
+  'Detecting duplicate entries',
+  'Analyzing medical debt rules',
+  'Reviewing hard inquiries',
+  'Generating Experian letter',
+  'Generating Equifax letter',
+  'Generating TransUnion letter',
+  'Building ZIP package',
+  'Uploading to secure storage',
 ];
 
 export default function ProcessingPage() {
@@ -24,92 +26,55 @@ export default function ProcessingPage() {
   const [step, setStep] = useState(0);
 
   useEffect(() => {
-    if (!analysisId) {
-      router.replace('/dashboard');
-      return;
-    }
+    if (!analysisId) { router.replace('/dashboard'); return; }
 
-    // Advance through visual steps
-    const interval = setInterval(() => {
-      setStep((s) => {
-        if (s >= STEPS.length - 1) return s;
-        return s + 1;
-      });
-    }, 1800);
+    const stepTimer = setInterval(() => {
+      setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    }, 2000);
 
-    // Poll for completion
-    const pollInterval = setInterval(async () => {
+    const pollTimer = setInterval(async () => {
       try {
         const res = await fetch(`/api/analyze/status?id=${analysisId}`);
         if (res.ok) {
           const { status } = await res.json();
           if (status === 'complete') {
-            clearInterval(interval);
-            clearInterval(pollInterval);
+            clearInterval(stepTimer);
+            clearInterval(pollTimer);
             router.push(`/results?id=${analysisId}`);
           }
         }
-      } catch {
-        // keep polling
-      }
+      } catch { /* keep polling */ }
     }, 3000);
 
-    return () => {
-      clearInterval(interval);
-      clearInterval(pollInterval);
-    };
+    return () => { clearInterval(stepTimer); clearInterval(pollTimer); };
   }, [analysisId, router]);
 
   return (
-    <div className="min-h-screen bg-credora-bg flex flex-col">
-      <nav className="flex items-center px-6 md:px-12 py-5 border-b border-credora-border">
+    <div className="min-h-screen bg-jeci-bg flex flex-col">
+      <nav className="flex items-center px-6 md:px-12 py-4 border-b border-jeci-border">
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-full bg-credora-gold" />
-          <span className="font-display text-lg font-bold text-credora-text">Credora AI</span>
+          <div className="w-1.5 h-5 bg-jeci-gold" />
+          <span className="font-display font-bold text-jeci-text">JECI Credit</span>
         </div>
       </nav>
 
       <div className="flex-1 flex items-center justify-center px-6 py-20">
-        <div className="text-center max-w-md animate-fade-in">
-          <div className="mb-10">
-            <ProgressRing
-              step={step + 1}
-              totalSteps={STEPS.length}
-              label={STEPS[step]}
-            />
+        <div className="w-full max-w-lg animate-fade-in">
+          <div className="mb-8">
+            <h1 className="font-display text-2xl font-bold text-jeci-text mb-2">
+              JECI AI is analyzing your report...
+            </h1>
+            <p className="text-jeci-muted text-sm font-mono">
+              Do not close this tab · {analysisId ? `job_id: ${analysisId.slice(0, 8)}...` : ''}
+            </p>
           </div>
 
-          <h1 className="font-display text-3xl font-bold text-credora-text mb-4">
-            Credora AI is analyzing your report
-          </h1>
-          <p className="text-credora-muted mb-10">
-            Our AI is scanning every account, inquiry, and public record against 18+ FCRA rules. Please don't close this tab.
-          </p>
-
-          {/* Step checklist */}
-          <div className="space-y-2 text-left max-w-xs mx-auto">
-            {STEPS.map((s, i) => (
-              <div
-                key={s}
-                className={`flex items-center gap-3 text-sm transition-all duration-300 ${
-                  i < step
-                    ? 'text-credora-gold'
-                    : i === step
-                    ? 'text-credora-text'
-                    : 'text-credora-muted/40'
-                }`}
-              >
-                {i < step ? (
-                  <span className="text-credora-gold flex-shrink-0">✓</span>
-                ) : i === step ? (
-                  <span className="w-1.5 h-1.5 rounded-full bg-credora-gold animate-pulse flex-shrink-0 mt-0.5" />
-                ) : (
-                  <span className="w-1.5 h-1.5 rounded-full bg-credora-border flex-shrink-0 mt-0.5" />
-                )}
-                {s}
-              </div>
-            ))}
-          </div>
+          <TerminalProgress
+            step={step}
+            totalSteps={STEPS.length}
+            label={STEPS[step]}
+            steps={STEPS}
+          />
         </div>
       </div>
     </div>

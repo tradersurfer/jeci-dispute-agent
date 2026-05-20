@@ -1,6 +1,6 @@
 -- ============================================================
 -- JECI DISPUTE AGENT — SUPABASE SCHEMA
--- 700 Credit Club
+-- JECI Credit
 -- ============================================================
 
 -- Enable UUID extension

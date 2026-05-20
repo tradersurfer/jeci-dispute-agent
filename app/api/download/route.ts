@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
   const arrayBuffer = await fileData.arrayBuffer();
   const safeName = analysis.client_name.replace(/[^a-zA-Z0-9]/g, '_');
-  const filename = `Credora_Dispute_Package_${safeName}.zip`;
+  const filename = `JECI_Dispute_Package_${safeName}.zip`;
 
   return new NextResponse(arrayBuffer, {
     headers: {
