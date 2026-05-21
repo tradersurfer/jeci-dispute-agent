@@ -54,7 +54,7 @@ export const handler: Handler = async (event) => {
           customer_email: null,
           plan:           'JECI Repair',
           payment_status: sub.status,
-          paid_at:        new Date(sub.current_period_start * 1000).toISOString(),
+          paid_at:        new Date(Date.now()).toISOString(),
         });
         break;
       }
