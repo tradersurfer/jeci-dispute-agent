@@ -7,6 +7,8 @@ import {
   CreditReport,
   WorkflowResult,
   DisputeRound,
+  Bureau,
+  DisputeItem,
 } from '../types/index.js';
 
 import {
@@ -105,8 +107,8 @@ export async function runRound1(
         clientAddress: `${client.address}, ${client.city}, ${client.state} ${client.zip}`,
         items:         round1Items,
       },
+      Object.fromEntries(byBureau) as Record<Bureau, DisputeItem[]>,
       1,
-      byBureau,
     );
 
     // 7. Attach letters to CRC client file

@@ -6,6 +6,7 @@ import {
   CreditReport,
   WorkflowResult,
   DisputeItem,
+  Bureau,
 } from '../types/index.js';
 
 import {
@@ -72,8 +73,8 @@ export async function runRound2(
         clientAddress: `${client.address}, ${client.city}, ${client.state} ${client.zip}`,
         items:         round2Items,
       },
+      Object.fromEntries(byBureau) as Record<Bureau, DisputeItem[]>,
       2,
-      byBureau,
     );
 
     for (const letter of letters) {
@@ -181,8 +182,8 @@ export async function runRound3(
         clientAddress: `${client.address}, ${client.city}, ${client.state} ${client.zip}`,
         items:         round3Items,
       },
+      Object.fromEntries(byBureau) as Record<Bureau, DisputeItem[]>,
       3,
-      byBureau,
     );
 
     for (const letter of letters) {
