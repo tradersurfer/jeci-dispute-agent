@@ -12,8 +12,8 @@ import type {
   AccountStatus,
   PaymentStatus,
   Bureau,
-} from '../../src/types/index.js';
-import type { RawParsedReport, RawParsedAccount } from './reportParser.js';
+} from '../../src/types/index';
+import type { RawParsedReport, RawParsedAccount } from './reportParser';
 
 function toBureaus(account: { on_equifax: boolean; on_experian: boolean; on_transunion: boolean }): Bureau[] {
   const bureaus: Bureau[] = [];
