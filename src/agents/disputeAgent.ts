@@ -4,7 +4,7 @@
 // Pure TypeScript — no external agent framework needed
 // ============================================================
 
-import { CreditReport, DisputeRound, WorkflowResult } from '../types/index.js';
+import { CreditReport, DisputeRound, WorkflowResult, Bureau, DisputeItem } from '../types/index.js';
 import { analyzeReport, groupDisputesByBureau, filterItemsForRound } from '../tools/reportAnalyzer.js';
 import { generateLettersForRound } from '../tools/letterGenerator.js';
 import {
@@ -75,8 +75,8 @@ export async function runDisputePipeline(
         clientAddress: `${client.address}, ${client.city}, ${client.state} ${client.zip}`,
         items: roundItems,
       },
+      Object.fromEntries(byBureau) as Record<Bureau, DisputeItem[]>,
       round,
-      byBureau,
     );
 
     for (const letter of letters) {
