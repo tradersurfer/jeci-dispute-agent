@@ -112,7 +112,8 @@ export default function LandingPage() {
       if (!res.ok) throw new Error('Checkout failed');
       const { url } = await res.json();
       window.location.href = url;
-    } catch {
+    } catch (err) {
+      console.error('[JECI/checkout] frontend error:', err);
       alert('Checkout error. Please try again.');
       setLoadingPlan(null);
     }

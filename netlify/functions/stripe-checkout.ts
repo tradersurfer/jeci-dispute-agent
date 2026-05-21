@@ -39,7 +39,10 @@ export const handler: Handler = async (event) => {
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[JECI/stripe-checkout]', message);
+    console.error('[JECI/stripe-checkout] ERROR:', message);
+    console.error('[JECI/stripe-checkout] Full error:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
+    console.error('[JECI/stripe-checkout] Env check — STRIPE_SECRET_KEY set:', !!process.env.STRIPE_SECRET_KEY);
+    console.error('[JECI/stripe-checkout] Env check — NEXT_PUBLIC_BASE_URL:', process.env.NEXT_PUBLIC_BASE_URL ?? '(not set)');
     return { statusCode: 500, body: JSON.stringify({ error: message }) };
   }
 };
