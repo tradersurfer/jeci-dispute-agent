@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/utils/supabase/admin';
 import { extractPDFText, parseCreditReportText } from '@/lib/pdf/reportParser';
 import { adaptParsedReport } from '@/lib/pdf/reportAdapter';
 import { buildDisputeZip } from '@/lib/zip/letterPackager';
-import type { Bureau, DisputeItem } from '../../../src/types/index.js';
+import type { Bureau, DisputeItem } from '../../../src/types/index';
 
 export const maxDuration = 60;
 
@@ -50,12 +50,12 @@ export async function POST(request: Request) {
     const creditReport = adaptParsedReport(parsedRaw, analysisId);
 
     // 4. Run FCRA/FDCPA rules engine
-    const { analyzeReport, groupDisputesByBureau } = await import('../../../src/tools/reportAnalyzer.js');
+    const { analyzeReport, groupDisputesByBureau } = await import('../../../src/tools/reportAnalyzer');
     const analysis = analyzeReport(creditReport);
     const disputesByBureau = groupDisputesByBureau(analysis.disputeItems);
 
     // 5. Generate dispute letters per bureau via Claude
-    const { generateLettersForRound } = await import('../../../src/tools/letterGenerator.js');
+    const { generateLettersForRound } = await import('../../../src/tools/letterGenerator');
     const letterParams = {
       clientName: creditReport.personalInfo.name,
       clientAddress: [

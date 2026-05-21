@@ -116,19 +116,19 @@
     @apply font-mono text-xs px-2 py-0.5 rounded border;
   }
   .badge-crit {
-    @apply badge border-red-500/40 text-red-400 bg-red-500/10;
+    @apply font-mono text-xs px-2 py-0.5 rounded border border-red-500/40 text-red-400 bg-red-500/10;
   }
   .badge-high {
-    @apply badge border-orange-500/40 text-orange-400 bg-orange-500/10;
+    @apply font-mono text-xs px-2 py-0.5 rounded border border-orange-500/40 text-orange-400 bg-orange-500/10;
   }
   .badge-med {
-    @apply badge border-yellow-500/40 text-yellow-400 bg-yellow-500/10;
+    @apply font-mono text-xs px-2 py-0.5 rounded border border-yellow-500/40 text-yellow-400 bg-yellow-500/10;
   }
   .badge-low {
-    @apply badge border-jeci-muted/40 text-jeci-muted bg-jeci-muted/10;
+    @apply font-mono text-xs px-2 py-0.5 rounded border border-jeci-muted/40 text-jeci-muted bg-jeci-muted/10;
   }
   .badge-ok {
-    @apply badge border-jeci-success/40 text-jeci-success bg-jeci-success/10;
+    @apply font-mono text-xs px-2 py-0.5 rounded border border-jeci-success/40 text-jeci-success bg-jeci-success/10;
   }
 
   /* Section divider */
