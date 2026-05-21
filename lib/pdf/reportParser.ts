@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -60,8 +61,8 @@ export interface RawParsedReport {
 }
 
 export async function extractPDFText(fileBuffer: Buffer): Promise<string> {
-  // Dynamically import pdf-parse (CommonJS module)
-  const pdfParse = (await import('pdf-parse')).default;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const pdfParse = require('pdf-parse');
   const data = await pdfParse(fileBuffer);
   return data.text;
 }
