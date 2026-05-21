@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import UploadZone from '../components/UploadZone';
 
@@ -24,7 +24,7 @@ const PROGRESS_STEPS = [
   'Building download package...',
 ];
 
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id') ?? '';
@@ -212,5 +212,13 @@ export default function DashboardPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-jeci-bg" />}>
+      <DashboardContent />
+    </Suspense>
   );
 }
